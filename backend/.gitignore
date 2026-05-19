@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Generated PDF/CSV reports — large binaries, not source
+generated_reports/*.pdf
+generated_reports/*.csv

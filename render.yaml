@@ -1,0 +1,43 @@
+databases:
+  - name: ai-governance-db
+    databaseName: aigov
+    user: aigov
+    plan: free
+
+services:
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  - type: redis
+    name: ai-governance-redis
+    plan: free
+    ipAllowList: []           # only internal access
+
+  # ── FastAPI Backend ──────────────────────────────────────────────────────────
+  - type: web
+    name: ai-governance-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-governance-db
+          property: connectionString
+        # Render gives a psycopg2 (sync) URL — rewrite to asyncpg
+        transform: "postgresql+asyncpg://{username}:{password}@{host}:{port}/{database}"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ai-governance-redis
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: FRONTEND_URL
+        value: "https://ai-governance-dashboard.vercel.app"   # ← update after Vercel deploy
+      - key: OPENAI_API_KEY
+        sync: false     # set manually in Render dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false     # set manually in Render dashboard
