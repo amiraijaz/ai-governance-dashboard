@@ -1,0 +1,165 @@
+/* ============================================================
+ * Vigil — dark mode overlay
+ * Activates when <html data-theme="dark"> is set.
+ * Only overrides surface + text colours used in the app;
+ * light mode is untouched.
+ * ============================================================ */
+
+:root[data-theme="dark"] {
+  /* Re-tune brand tokens for dark backgrounds */
+  --vigil-green: #2bb482;
+  --vigil-green-light: rgba(43, 180, 130, 0.16);
+  --vigil-green-dark: #1d9e75;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.25);
+  --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+/* ---- Page surfaces ---- */
+:root[data-theme="dark"] body { background: #0b1220; color: #e2e8f0; }
+
+:root[data-theme="dark"] .bg-slate-50  { background-color: #0b1220 !important; }
+:root[data-theme="dark"] .bg-white     { background-color: #131c2e !important; }
+:root[data-theme="dark"] .bg-slate-100 { background-color: #1a2336 !important; }
+
+/* Forms / fields */
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] select {
+  background-color: #0f1726;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder { color: #64748b; }
+:root[data-theme="dark"] input:focus,
+:root[data-theme="dark"] textarea:focus,
+:root[data-theme="dark"] select:focus {
+  border-color: var(--vigil-green);
+  box-shadow: 0 0 0 1px var(--vigil-green);
+  outline: none;
+}
+
+/* ---- Borders ---- */
+:root[data-theme="dark"] .border-slate-200 { border-color: #2a3650 !important; }
+:root[data-theme="dark"] .border-slate-100 { border-color: #1f2940 !important; }
+:root[data-theme="dark"] .border-slate-300 { border-color: #334155 !important; }
+:root[data-theme="dark"] .divide-slate-100 > * + * { border-top-color: #1f2940 !important; }
+:root[data-theme="dark"] .border-dashed.border-slate-300 { border-color: #334155 !important; }
+
+/* ---- Text ---- */
+/* Bumped up one step from the original mapping so uppercase tracking-wide
+ * labels (text-slate-500) read clearly against the navy card surface.
+ * Hierarchy preserved: 900 brightest → 400 dimmest. */
+:root[data-theme="dark"] .text-slate-900 { color: #f8fafc !important; }
+:root[data-theme="dark"] .text-slate-800 { color: #e2e8f0 !important; }
+:root[data-theme="dark"] .text-slate-700 { color: #d1d9e3 !important; }
+:root[data-theme="dark"] .text-slate-600 { color: #c0c9d6 !important; }
+:root[data-theme="dark"] .text-slate-500 { color: #a7b2c2 !important; }
+:root[data-theme="dark"] .text-slate-400 { color: #8593a8 !important; }
+
+/* ---- Table headers ---- */
+:root[data-theme="dark"] thead.bg-slate-50,
+:root[data-theme="dark"] tr.hover\:bg-slate-50:hover { background-color: #1a2336 !important; }
+
+/* ---- Subtle tinted accent backgrounds (badges, pills) ---- */
+:root[data-theme="dark"] .bg-green-100   { background-color: rgba(34, 197, 94, 0.16) !important; }
+:root[data-theme="dark"] .text-green-700 { color: #4ade80 !important; }
+:root[data-theme="dark"] .text-green-600 { color: #4ade80 !important; }
+:root[data-theme="dark"] .text-green-800 { color: #86efac !important; }
+:root[data-theme="dark"] .ring-green-200 { --tw-ring-color: rgba(34, 197, 94, 0.32) !important; }
+
+:root[data-theme="dark"] .bg-amber-100   { background-color: rgba(245, 158, 11, 0.18) !important; }
+:root[data-theme="dark"] .bg-amber-50    { background-color: rgba(245, 158, 11, 0.10) !important; }
+:root[data-theme="dark"] .text-amber-800 { color: #fbbf24 !important; }
+:root[data-theme="dark"] .ring-amber-200 { --tw-ring-color: rgba(245, 158, 11, 0.32) !important; }
+
+:root[data-theme="dark"] .bg-orange-100   { background-color: rgba(249, 115, 22, 0.18) !important; }
+:root[data-theme="dark"] .text-orange-800 { color: #fb923c !important; }
+
+:root[data-theme="dark"] .bg-red-100   { background-color: rgba(239, 68, 68, 0.18) !important; }
+:root[data-theme="dark"] .bg-red-50    { background-color: rgba(239, 68, 68, 0.10) !important; }
+:root[data-theme="dark"] .text-red-700 { color: #f87171 !important; }
+:root[data-theme="dark"] .text-red-800 { color: #fca5a5 !important; }
+:root[data-theme="dark"] .ring-red-200 { --tw-ring-color: rgba(239, 68, 68, 0.32) !important; }
+:root[data-theme="dark"] .border-red-200 { border-color: rgba(239, 68, 68, 0.30) !important; }
+
+:root[data-theme="dark"] .bg-blue-50   { background-color: rgba(59, 130, 246, 0.12) !important; }
+:root[data-theme="dark"] .text-blue-600 { color: #60a5fa !important; }
+
+:root[data-theme="dark"] .bg-purple-50  { background-color: rgba(168, 85, 247, 0.14) !important; }
+:root[data-theme="dark"] .text-purple-600 { color: #c084fc !important; }
+
+:root[data-theme="dark"] .bg-green-50    { background-color: rgba(34, 197, 94, 0.12) !important; }
+
+/* ---- Hover surfaces ---- */
+:root[data-theme="dark"] .hover\:bg-slate-50:hover  { background-color: #1a2336 !important; }
+:root[data-theme="dark"] .hover\:bg-slate-100:hover { background-color: #243049 !important; }
+
+/* ---- Sidebar ---- */
+:root[data-theme="dark"] .vigil-nav {
+  color: #c0c9d6;
+}
+:root[data-theme="dark"] .vigil-nav:hover {
+  background: rgba(43, 180, 130, 0.10);
+  color: #f1f5f9;
+}
+:root[data-theme="dark"] .vigil-nav.active {
+  background: rgba(43, 180, 130, 0.18);
+  color: #6ee7b7;
+}
+
+/* ---- Tooltip ---- */
+:root[data-theme="dark"] .vigil-tooltip {
+  background: #1a2336;
+  color: #e2e8f0;
+  border-left-color: var(--vigil-green);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] .vigil-tooltip-label { color: #f8fafc; }
+
+/* Recharts' default tooltip (used by some charts that don't pass our custom one) */
+:root[data-theme="dark"] .recharts-default-tooltip {
+  background-color: #1a2336 !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+:root[data-theme="dark"] .recharts-tooltip-item { color: #e2e8f0 !important; }
+:root[data-theme="dark"] .recharts-tooltip-label { color: #f8fafc !important; }
+
+/* ---- Shimmer skeleton on dark surfaces ---- */
+:root[data-theme="dark"] .vigil-shimmer {
+  background: linear-gradient(90deg, #1a2336 0%, #243049 40%, #1a2336 80%);
+  background-size: 200% 100%;
+}
+
+/* ---- Tables stripe on hover ---- */
+:root[data-theme="dark"] .vigil-row:hover { background-color: rgba(43, 180, 130, 0.06); }
+
+/* ---- Metric card gradients fade into the dark surface ---- */
+:root[data-theme="dark"] .vigil-card,
+:root[data-theme="dark"] .vigil-card-interactive {
+  /* Override the inline gradient that ends in white. */
+  background: #131c2e !important;
+}
+
+/* Recharts grid + axes — brighter ticks for readability */
+:root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #2a3650 !important; }
+:root[data-theme="dark"] .recharts-cartesian-axis-tick text { fill: #c0c9d6 !important; }
+:root[data-theme="dark"] .recharts-legend-item-text { color: #d1d9e3 !important; }
+:root[data-theme="dark"] .recharts-text { fill: #c0c9d6 !important; }
+
+/* Drawer/Modal backdrop sits darker against the deep page bg */
+:root[data-theme="dark"] .vigil-modal-backdrop { background: rgba(2, 6, 16, 0.55); }
+
+/* Code / monospace — kept legible on dark surfaces */
+:root[data-theme="dark"] code,
+:root[data-theme="dark"] pre {
+  color: #e2e8f0;
+}
+:root[data-theme="dark"] .bg-slate-50 pre,
+:root[data-theme="dark"] pre.bg-slate-50 {
+  background-color: #0f1726 !important;
+}

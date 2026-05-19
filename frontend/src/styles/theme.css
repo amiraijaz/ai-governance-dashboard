@@ -1,0 +1,219 @@
+/* ---- Vigil design tokens ---- */
+:root {
+  --vigil-green: #1d9e75;
+  --vigil-green-light: #e1f5ee;
+  --vigil-green-dark: #0f6e56;
+
+  --radius-card: 12px;
+  --radius-md: 8px;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.10);
+
+  --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Page-load fade/slide ---- */
+@keyframes vigilFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.vigil-fade-in {
+  animation: vigilFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- Card hover lift ---- */
+.vigil-card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: var(--transition-base);
+}
+.vigil-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+
+/* ---- Primary button with ripple ---- */
+.btn-primary {
+  position: relative;
+  overflow: hidden;
+  background: var(--vigil-green);
+  color: white;
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: var(--transition-base);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--vigil-green-dark);
+  transform: translateY(-1px);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-primary .ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  transform: scale(0);
+  animation: vigilRipple 0.5s ease-out;
+  pointer-events: none;
+}
+@keyframes vigilRipple {
+  to { transform: scale(2.5); opacity: 0; }
+}
+
+/* ---- Pulsing red severity dot ---- */
+.vigil-pulse-red {
+  position: relative;
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dc2626;
+  vertical-align: middle;
+}
+.vigil-pulse-red::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: vigilPulse 2s ease-out infinite;
+}
+@keyframes vigilPulse {
+  0%   { transform: scale(1);   opacity: 1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* ---- Shimmer skeleton ---- */
+.vigil-shimmer {
+  background: linear-gradient(
+    90deg,
+    #f1f5f9 0%,
+    #e2e8f0 40%,
+    #f1f5f9 80%
+  );
+  background-size: 200% 100%;
+  animation: vigilShimmer 1.5s linear infinite;
+}
+@keyframes vigilShimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---- Drawer slide-in ---- */
+@keyframes vigilDrawerIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes vigilBackdropIn {
+  from { opacity: 0; }
+  to   { opacity: 0.4; }
+}
+.vigil-drawer { animation: vigilDrawerIn 0.25s ease both; }
+.vigil-backdrop { animation: vigilBackdropIn 0.25s ease both; }
+
+/* ---- Centered modal with blurred backdrop ---- */
+@keyframes vigilModalBackdropIn {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(6px); }
+}
+@keyframes vigilModalPopIn {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.vigil-modal-backdrop {
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: vigilModalBackdropIn 0.22s ease both;
+}
+.vigil-modal-pop {
+  animation: vigilModalPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ---- Table row interactivity ---- */
+.vigil-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.vigil-row:hover {
+  background-color: rgba(29, 158, 117, 0.04);
+}
+
+/* ---- Expand row max-height transition (apply with .open) ---- */
+.vigil-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+.vigil-expand.open { max-height: 500px; }
+
+/* ---- Tooltip card ---- */
+.vigil-tooltip {
+  background: white;
+  border-left: 3px solid var(--vigil-green);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  box-shadow: var(--shadow-hover);
+  font-size: 12px;
+  color: #1f2937;
+}
+.vigil-tooltip-label {
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 2px;
+}
+
+/* ---- Auth split layout ---- */
+.auth-fade {
+  opacity: 0;
+  transform: translateY(16px);
+  animation: vigilFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ---- Sidebar active state ---- */
+.vigil-nav {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+  transition: var(--transition-base);
+}
+.vigil-nav:hover {
+  background: rgba(29, 158, 117, 0.05);
+  color: #0f172a;
+}
+.vigil-nav.active {
+  background: var(--vigil-green-light);
+  color: var(--vigil-green-dark);
+}
+.vigil-nav.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--vigil-green);
+  border-radius: 0 3px 3px 0;
+}
+.vigil-nav.active svg { color: var(--vigil-green); }
