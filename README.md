@@ -126,6 +126,8 @@ Want server-side response scanning for PII / prompt-injection? Pass `log_respons
 
 ## Architecture
 
+![Architecture](./frontend/public/ai-gov-architecture.png)
+
 ```
 ┌────────────────────────────┐         ┌────────────────────────────────────┐
 │  React + Vite (port 3000)  │ ◄────►  │  FastAPI async (port 8000)         │
