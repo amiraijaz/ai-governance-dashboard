@@ -8,15 +8,14 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 
 from config import settings
-from database import Base, _is_local_dsn, _normalize_dsn
+from database import Base, _normalize_dsn
 import models  # noqa: F401  -- ensure all models are imported
 
-# DSN handling matches the app exactly so migrations against Supabase's
-# pgbouncer pooler don't trip prepared-statement errors or asyncpg's
-# sslmode rejection.
+# Single source of truth — _normalize_dsn() handles scheme rewriting,
+# sslmode stripping, the (non-verifying) ssl context for remote hosts,
+# and the statement-cache disables required by Supabase's pgbouncer
+# pooler. Migrations connect identically to the runtime engine.
 _clean_url, _connect_args = _normalize_dsn(settings.DATABASE_URL)
-if _is_local_dsn(_clean_url):
-    _connect_args.pop("ssl", None)
 
 # IMPORTANT: do NOT route _clean_url through config.set_main_option /
 # config.get_section. Alembic stores those values in a ConfigParser
