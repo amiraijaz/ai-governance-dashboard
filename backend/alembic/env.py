@@ -8,11 +8,19 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from config import settings
-from database import Base, _to_async_url
+from database import Base, _is_local_dsn, _normalize_dsn
 import models  # noqa: F401  -- ensure all models are imported
 
+# Reuse the exact same DSN handling as the app, so migrations against
+# Supabase's pgbouncer pooler don't fail with "prepared statement already
+# exists" or asyncpg's sslmode rejection. The clean URL goes into the
+# Alembic config; the connect_args ride alongside via async_engine_from_config.
+_clean_url, _connect_args = _normalize_dsn(settings.DATABASE_URL)
+if _is_local_dsn(_clean_url):
+    _connect_args.pop("ssl", None)
+
 config = context.config
-config.set_main_option("sqlalchemy.url", _to_async_url(settings.DATABASE_URL))
+config.set_main_option("sqlalchemy.url", _clean_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -42,6 +50,7 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=_connect_args,
     )
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
