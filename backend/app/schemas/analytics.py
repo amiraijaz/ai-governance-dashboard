@@ -46,6 +46,38 @@ class TopModel(BaseModel):
     calls: int
 
 
+class MetricDelta(BaseModel):
+    """Current 30-day window vs the prior 30-day window.
+
+    `pct_change` is None when the previous window was zero (a percent change
+    against zero is meaningless); the UI should fall back to showing the
+    absolute current value in that case.
+    """
+    current: float
+    previous: float
+    pct_change: Optional[float] = None
+
+
+class RiskBreakdown(BaseModel):
+    low: int
+    medium: int
+    high: int
+    critical: int
+    added_this_month: int
+
+
+class CostDriver(BaseModel):
+    name: str
+    cost: float
+    share_pct: float
+
+
+class SeverityBreakdown(BaseModel):
+    red: int
+    yellow: int
+    green: int
+
+
 class AnalyticsSummary(BaseModel):
     models_registered: int
     calls_this_month: int
@@ -53,3 +85,11 @@ class AnalyticsSummary(BaseModel):
     open_flags: int
     cost_last_30_days: List[CostSparkPoint]
     top_models: List[TopModel]
+
+    # New: card-specific visuals + honest period-over-period deltas.
+    models_by_risk: RiskBreakdown
+    top_cost_models: List[CostDriver]
+    open_flags_by_severity: SeverityBreakdown
+    calls_delta: MetricDelta
+    cost_delta: MetricDelta
+    flags_delta: MetricDelta

@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False)
     FRONTEND_URL: str = Field(default="http://localhost:3000")
 
+    SENTRY_DSN: str = Field(default="")
+    ENVIRONMENT: str = Field(default="development")
+
+    SPACY_MODEL: str = Field(default="en_core_web_lg")
+
     @field_validator("SECRET_KEY")
     @classmethod
     def secret_key_must_not_be_default(cls, v: str) -> str:

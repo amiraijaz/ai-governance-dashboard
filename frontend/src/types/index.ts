@@ -89,6 +89,32 @@ export interface AnalyticsModel {
   total_tokens: number;
 }
 
+export interface MetricDelta {
+  current: number;
+  previous: number;
+  pct_change: number | null;
+}
+
+export interface RiskBreakdown {
+  low: number;
+  medium: number;
+  high: number;
+  critical: number;
+  added_this_month: number;
+}
+
+export interface CostDriver {
+  name: string;
+  cost: number;
+  share_pct: number;
+}
+
+export interface SeverityBreakdown {
+  red: number;
+  yellow: number;
+  green: number;
+}
+
 export interface DashboardSummary {
   models_registered: number;
   calls_this_month: number;
@@ -96,6 +122,12 @@ export interface DashboardSummary {
   open_flags: number;
   cost_last_30_days: { date: string; cost: number }[];
   top_models: { name: string; calls: number }[];
+  models_by_risk: RiskBreakdown;
+  top_cost_models: CostDriver[];
+  open_flags_by_severity: SeverityBreakdown;
+  calls_delta: MetricDelta;
+  cost_delta: MetricDelta;
+  flags_delta: MetricDelta;
 }
 
 export interface AuthTokens {

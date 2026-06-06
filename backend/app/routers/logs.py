@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ import sys
 from fastapi import BackgroundTasks
 
 from app.auth import get_current_user
+from app.limiter import api_key_rate_limit_key, limiter
 from app.schemas.audit_log import AuditLogCreate, AuditLogResponse, PaginatedLogs
 from database import AsyncSessionLocal, get_db
 from models import APIKey, AuditLog, ModelRegistry, SafetyFlag
@@ -212,7 +213,9 @@ async def run_safety_check(
     response_model=AuditLogResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("1000/minute", key_func=api_key_rate_limit_key)
 async def ingest_log(
+    request: Request,
     payload: AuditLogCreate,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),

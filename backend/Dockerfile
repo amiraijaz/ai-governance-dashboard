@@ -2,7 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV PIP_DEFAULT_TIMEOUT=300
+ENV PIP_DEFAULT_TIMEOUT=300 \
+    PYTHONUNBUFFERED=1 \
+    SPACY_MODEL=en_core_web_sm
 
 # WeasyPrint runtime deps (pango, cairo, fonts)
 RUN apt-get update \
@@ -18,9 +20,13 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-RUN python -m spacy download en_core_web_lg
+# Small spaCy model in production to stay within Railway's memory limits.
+# Local dev can override with: docker build --build-arg SPACY_MODEL=en_core_web_lg
+ARG SPACY_MODEL=en_core_web_sm
+RUN python -m spacy download "${SPACY_MODEL}"
 
 COPY . .
+RUN chmod +x ./start.sh
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start.sh"]

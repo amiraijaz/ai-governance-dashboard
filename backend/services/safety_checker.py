@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+import threading
 from typing import Any, Optional
 
 import httpx
@@ -25,26 +26,47 @@ _GREEN, _YELLOW, _RED = "GREEN", "YELLOW", "RED"
 
 
 class SafetyChecker:
-    """Singleton. Instantiate once at startup; loads Presidio spaCy model lazily."""
+    """Lazy Presidio + spaCy.
+
+    The spaCy model is several hundred MB resident. On Render's 512 MB free
+    plan we cannot afford to load it at boot — most requests never trigger
+    a safety check, and the ones that do run as background tasks where a
+    cold first load is acceptable. The model loads on the first PII flag
+    and is reused for the life of the process.
+
+    The init path is guarded by a `threading.Lock` because `_pii_flag`
+    dispatches through `asyncio.to_thread`, so concurrent first calls
+    would otherwise race to instantiate the engine twice.
+    """
 
     def __init__(self) -> None:
         self._analyzer: Any | None = None
         self._presidio_unavailable: bool = False
+        self._lock = threading.Lock()
 
     def _ensure_analyzer(self) -> Any | None:
+        # Fast path: already loaded (or known unavailable).
         if self._analyzer is not None or self._presidio_unavailable:
             return self._analyzer
-        try:
-            from presidio_analyzer import AnalyzerEngine
-            self._analyzer = AnalyzerEngine()
-        except Exception as exc:
-            print(f"[safety] Presidio unavailable: {exc}", file=sys.stderr)
-            self._presidio_unavailable = True
-        return self._analyzer
+        with self._lock:
+            # Re-check inside the lock — another thread may have raced ahead.
+            if self._analyzer is not None or self._presidio_unavailable:
+                return self._analyzer
+            try:
+                from presidio_analyzer import AnalyzerEngine
+                from presidio_analyzer.nlp_engine import NlpEngineProvider
 
-    async def warmup(self) -> None:
-        """Force model load at startup so the first request is not slow."""
-        await asyncio.to_thread(self._ensure_analyzer)
+                provider = NlpEngineProvider(
+                    nlp_configuration={
+                        "nlp_engine_name": "spacy",
+                        "models": [{"lang_code": "en", "model_name": settings.SPACY_MODEL}],
+                    }
+                )
+                self._analyzer = AnalyzerEngine(nlp_engine=provider.create_engine())
+            except Exception as exc:
+                print(f"[safety] Presidio unavailable: {exc}", file=sys.stderr)
+                self._presidio_unavailable = True
+        return self._analyzer
 
     async def _pii_flag(self, text: str) -> Optional[dict[str, Any]]:
         analyzer = await asyncio.to_thread(self._ensure_analyzer)

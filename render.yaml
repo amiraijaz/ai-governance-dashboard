@@ -1,43 +1,40 @@
-databases:
-  - name: ai-governance-db
-    databaseName: aigov
-    user: aigov
-    plan: free
+# Render Blueprint — backend web service only.
+# Frontend continues to deploy on Vercel; Postgres lives on Supabase
+# (Transaction-mode pooler, port 6543); Redis lives on Upstash (rediss://).
+# Each `sync: false` secret is set in the Render dashboard, never in this file.
 
 services:
-  # ── Redis ────────────────────────────────────────────────────────────────────
-  - type: redis
-    name: ai-governance-redis
-    plan: free
-    ipAllowList: []           # only internal access
-
-  # ── FastAPI Backend ──────────────────────────────────────────────────────────
   - type: web
-    name: ai-governance-api
+    name: vigil-api
     runtime: docker
+    region: oregon
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    plan: free
+    # backend/start.sh runs `alembic upgrade head` then `uvicorn --port $PORT`.
+    # Render injects $PORT; start.sh defaults to 8000 only for local docker.
     healthCheckPath: /health
     envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ai-governance-db
-          property: connectionString
-        # Render gives a psycopg2 (sync) URL — rewrite to asyncpg
-        transform: "postgresql+asyncpg://{username}:{password}@{host}:{port}/{database}"
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: ai-governance-redis
-          property: connectionString
+      # --- Secrets configured in the Render dashboard (never in git) --------
       - key: SECRET_KEY
-        generateValue: true
+        sync: false           # openssl rand -hex 32
+      - key: DATABASE_URL
+        sync: false           # Supabase pooled DSN, port 6543, Transaction mode
+      - key: REDIS_URL
+        sync: false           # Upstash rediss:// URL
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false           # Vercel deployment URL (comma-separated list ok)
+      - key: SENTRY_DSN
+        sync: false           # leave empty in the dashboard to disable Sentry
+
+      # --- Non-secret config, safe to keep in source ------------------------
+      - key: ENVIRONMENT
+        value: production
       - key: DEBUG
         value: "false"
-      - key: FRONTEND_URL
-        value: "https://ai-governance-dashboard.vercel.app"   # ← update after Vercel deploy
-      - key: OPENAI_API_KEY
-        sync: false     # set manually in Render dashboard
-      - key: ANTHROPIC_API_KEY
-        sync: false     # set manually in Render dashboard
+      - key: SPACY_MODEL
+        value: en_core_web_sm

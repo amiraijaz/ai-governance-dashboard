@@ -14,15 +14,34 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.25);
   --shadow-hover: 0 6px 18px rgba(0, 0, 0, 0.5);
 
+  /* Semantic surfaces — match the dark screenshot exactly */
+  --color-page-bg:        #0a0e14;
+  --color-card-bg:        #11161f;
+  --color-card-border:    #1c2330;
+  --color-divider:        #1c2330;
+  --color-text-primary:   #f1f5f9;
+  --color-text-secondary: #a7b2c2;
+  --color-text-muted:     #6b7280;
+  --color-chart-grid:     #1f2937;
+  --color-chart-axis:     #6b7280;
+  --color-pill-bg:        #1a2230;
+
+  /* Accent tints — slightly stronger on dark so they read */
+  --accent-blue-tint:   rgba(59, 130, 246, 0.18);
+  --accent-purple-tint: rgba(168, 85, 247, 0.18);
+  --accent-green-tint:  rgba(16, 185, 129, 0.18);
+  --accent-amber-tint:  rgba(245, 158, 11, 0.18);
+  --accent-red-tint:    rgba(239, 68, 68, 0.18);
+
   color-scheme: dark;
 }
 
 /* ---- Page surfaces ---- */
-:root[data-theme="dark"] body { background: #0b1220; color: #e2e8f0; }
+:root[data-theme="dark"] body { background: #0a0e14; color: #f1f5f9; }
 
-:root[data-theme="dark"] .bg-slate-50  { background-color: #0b1220 !important; }
-:root[data-theme="dark"] .bg-white     { background-color: #131c2e !important; }
-:root[data-theme="dark"] .bg-slate-100 { background-color: #1a2336 !important; }
+:root[data-theme="dark"] .bg-slate-50  { background-color: #0a0e14 !important; }
+:root[data-theme="dark"] .bg-white     { background-color: #11161f !important; }
+:root[data-theme="dark"] .bg-slate-100 { background-color: #1a2230 !important; }
 
 /* Forms / fields */
 :root[data-theme="dark"] input,
@@ -142,14 +161,14 @@
 :root[data-theme="dark"] .vigil-card,
 :root[data-theme="dark"] .vigil-card-interactive {
   /* Override the inline gradient that ends in white. */
-  background: #131c2e !important;
+  background: #11161f !important;
 }
 
-/* Recharts grid + axes — brighter ticks for readability */
-:root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #2a3650 !important; }
-:root[data-theme="dark"] .recharts-cartesian-axis-tick text { fill: #c0c9d6 !important; }
+/* Recharts grid + axes — softer in dark so the gridlines barely show */
+:root[data-theme="dark"] .recharts-cartesian-grid line { stroke: #1f2937 !important; }
+:root[data-theme="dark"] .recharts-cartesian-axis-tick text { fill: #94a3b8 !important; }
 :root[data-theme="dark"] .recharts-legend-item-text { color: #d1d9e3 !important; }
-:root[data-theme="dark"] .recharts-text { fill: #c0c9d6 !important; }
+:root[data-theme="dark"] .recharts-text { fill: #94a3b8 !important; }
 
 /* Drawer/Modal backdrop sits darker against the deep page bg */
 :root[data-theme="dark"] .vigil-modal-backdrop { background: rgba(2, 6, 16, 0.55); }

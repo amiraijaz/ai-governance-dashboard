@@ -11,6 +11,31 @@
   --shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.10);
 
   --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Semantic surfaces — overridden under [data-theme="dark"] in dark.css */
+  --color-page-bg:        #f7f8fa;
+  --color-card-bg:        #ffffff;
+  --color-card-border:    #e6e8ec;
+  --color-divider:        #eef0f3;
+  --color-text-primary:   #0f172a;
+  --color-text-secondary: #475569;
+  --color-text-muted:     #94a3b8;
+  --color-chart-grid:     #e5e7eb;
+  --color-chart-axis:     #94a3b8;
+  --color-pill-bg:        #f1f5f9;
+
+  /* Accent palette used across metric cards + bars */
+  --accent-blue:   #3b82f6;
+  --accent-purple: #a855f7;
+  --accent-green:  #10b981;
+  --accent-amber:  #f59e0b;
+  --accent-red:    #ef4444;
+
+  --accent-blue-tint:   rgba(59, 130, 246, 0.10);
+  --accent-purple-tint: rgba(168, 85, 247, 0.10);
+  --accent-green-tint:  rgba(16, 185, 129, 0.10);
+  --accent-amber-tint:  rgba(245, 158, 11, 0.10);
+  --accent-red-tint:    rgba(239, 68, 68, 0.10);
 }
 
 /* ---- Page-load fade/slide ---- */

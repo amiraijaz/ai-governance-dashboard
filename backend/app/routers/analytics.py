@@ -9,10 +9,14 @@ from app.auth import get_current_user
 from app.schemas.analytics import (
     AnalyticsSummary,
     CostBucket,
+    CostDriver,
     CostSparkPoint,
     LatencyBucket,
+    MetricDelta,
     ModelBreakdown,
     RequestBucket,
+    RiskBreakdown,
+    SeverityBreakdown,
     TopModel,
 )
 from database import get_db
@@ -177,11 +181,21 @@ async def models_analytics(db: AsyncSession = Depends(get_db)):
     ]
 
 
+def _pct_change(current: float, previous: float) -> float | None:
+    """Symmetric delta helper. None when the previous window was empty
+    so the UI can fall back to showing the absolute current instead of
+    rendering a meaningless ∞%."""
+    if previous == 0:
+        return None
+    return ((current - previous) / previous) * 100.0
+
+
 @router.get("/summary", response_model=AnalyticsSummary)
 async def summary(db: AsyncSession = Depends(get_db)):
     now = datetime.now(timezone.utc)
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     thirty_days_ago = now - timedelta(days=30)
+    sixty_days_ago = now - timedelta(days=60)
 
     models_registered = await db.scalar(select(func.count(ModelRegistry.id))) or 0
 
@@ -223,6 +237,101 @@ async def summary(db: AsyncSession = Depends(get_db)):
     ).all()
     top_models = [TopModel(name=r.name, calls=r.calls) for r in top_rows]
 
+    # --- Risk-level breakdown ---------------------------------------------
+    risk_rows = (
+        await db.execute(
+            select(ModelRegistry.risk_level, func.count(ModelRegistry.id))
+            .group_by(ModelRegistry.risk_level)
+        )
+    ).all()
+    risk_counts = {level: count for level, count in risk_rows}
+    added_this_month = await db.scalar(
+        select(func.count(ModelRegistry.id)).where(ModelRegistry.created_at >= month_start)
+    ) or 0
+    models_by_risk = RiskBreakdown(
+        low=int(risk_counts.get("Low", 0)),
+        medium=int(risk_counts.get("Medium", 0)),
+        high=int(risk_counts.get("High", 0)),
+        critical=int(risk_counts.get("Critical", 0)),
+        added_this_month=int(added_this_month),
+    )
+
+    # --- Top cost drivers (last 30 days) ----------------------------------
+    cost_total_30d = float(
+        await db.scalar(
+            select(func.coalesce(func.sum(AuditLog.total_cost_usd), 0.0)).where(
+                AuditLog.timestamp >= thirty_days_ago
+            )
+        ) or 0.0
+    )
+    driver_rows = (
+        await db.execute(
+            select(
+                ModelRegistry.name,
+                func.coalesce(func.sum(AuditLog.total_cost_usd), 0.0).label("cost"),
+            )
+            .join(AuditLog, AuditLog.model_id == ModelRegistry.id)
+            .where(AuditLog.timestamp >= thirty_days_ago)
+            .group_by(ModelRegistry.name)
+            .order_by(func.sum(AuditLog.total_cost_usd).desc())
+            .limit(3)
+        )
+    ).all()
+    top_cost_models = [
+        CostDriver(
+            name=r.name,
+            cost=float(r.cost),
+            share_pct=(float(r.cost) / cost_total_30d * 100.0) if cost_total_30d > 0 else 0.0,
+        )
+        for r in driver_rows
+    ]
+
+    # --- Open-flags by severity -------------------------------------------
+    sev_rows = (
+        await db.execute(
+            select(SafetyFlag.severity, func.count(SafetyFlag.id))
+            .where(SafetyFlag.reviewed.is_(False))
+            .group_by(SafetyFlag.severity)
+        )
+    ).all()
+    sev_counts = {sev: count for sev, count in sev_rows}
+    open_flags_by_severity = SeverityBreakdown(
+        red=int(sev_counts.get("RED", 0)),
+        yellow=int(sev_counts.get("YELLOW", 0)),
+        green=int(sev_counts.get("GREEN", 0)),
+    )
+
+    # --- Period-over-period deltas (last 30d vs prior 30d) ----------------
+    prev_window = (AuditLog.timestamp >= sixty_days_ago, AuditLog.timestamp < thirty_days_ago)
+    curr_window = (AuditLog.timestamp >= thirty_days_ago,)
+
+    calls_curr = int(await db.scalar(
+        select(func.count(AuditLog.id)).where(*curr_window)
+    ) or 0)
+    calls_prev = int(await db.scalar(
+        select(func.count(AuditLog.id)).where(*prev_window)
+    ) or 0)
+    cost_curr = float(await db.scalar(
+        select(func.coalesce(func.sum(AuditLog.total_cost_usd), 0.0)).where(*curr_window)
+    ) or 0.0)
+    cost_prev = float(await db.scalar(
+        select(func.coalesce(func.sum(AuditLog.total_cost_usd), 0.0)).where(*prev_window)
+    ) or 0.0)
+
+    # Flag-creation counts (not "open" — open is point-in-time). Trending
+    # how many flags the system raised over time is the meaningful signal.
+    flags_curr = int(await db.scalar(
+        select(func.count(SafetyFlag.id)).where(
+            SafetyFlag.timestamp >= thirty_days_ago
+        )
+    ) or 0)
+    flags_prev = int(await db.scalar(
+        select(func.count(SafetyFlag.id)).where(
+            SafetyFlag.timestamp >= sixty_days_ago,
+            SafetyFlag.timestamp < thirty_days_ago,
+        )
+    ) or 0)
+
     return AnalyticsSummary(
         models_registered=int(models_registered),
         calls_this_month=int(calls_this_month),
@@ -230,4 +339,19 @@ async def summary(db: AsyncSession = Depends(get_db)):
         open_flags=int(open_flags),
         cost_last_30_days=cost_last_30_days,
         top_models=top_models,
+        models_by_risk=models_by_risk,
+        top_cost_models=top_cost_models,
+        open_flags_by_severity=open_flags_by_severity,
+        calls_delta=MetricDelta(
+            current=calls_curr, previous=calls_prev,
+            pct_change=_pct_change(calls_curr, calls_prev),
+        ),
+        cost_delta=MetricDelta(
+            current=cost_curr, previous=cost_prev,
+            pct_change=_pct_change(cost_curr, cost_prev),
+        ),
+        flags_delta=MetricDelta(
+            current=flags_curr, previous=flags_prev,
+            pct_change=_pct_change(flags_curr, flags_prev),
+        ),
     )

@@ -1,0 +1,15 @@
+# Railway service config for the backend.
+# Railway autodetects the Dockerfile in this directory; this file only refines
+# the deploy contract (healthcheck, restart policy). Set the Railway service
+# "Root Directory" to `backend` in the dashboard so this file is picked up.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "./start.sh"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

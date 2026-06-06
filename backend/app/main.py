@@ -11,12 +11,14 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from app.limiter import limiter
+from app.observability import init_sentry
 
 from app.routers import (
     analytics,
     auth,
     cost,
     flags,
+    health,
     keys,
     logs,
     models,
@@ -67,7 +69,8 @@ async def lifespan(app: FastAPI):
             file=sys.stderr,
         )
 
-    await safety_checker.warmup()
+    # Presidio + spaCy load lazily on first PII flag — see SafetyChecker
+    # docstring. Render's 512 MB free tier can't afford an eager warmup.
     app.state.safety_checker = safety_checker
 
     await _run_sync_with_timeout(timeout_seconds=10.0)
@@ -81,14 +84,18 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown(wait=False)
 
 
+init_sentry()
+
 app = FastAPI(title="AI Governance Dashboard", version="0.1.0", lifespan=lifespan)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 _cors_origins = ["http://localhost:3000", "http://localhost:5173"]
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in _cors_origins:
-    _cors_origins.append(settings.FRONTEND_URL)
+for raw in (settings.FRONTEND_URL or "").split(","):
+    origin = raw.strip().rstrip("/")
+    if origin and origin not in _cors_origins:
+        _cors_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -128,8 +135,4 @@ app.include_router(flags.router, prefix="/api/flags", tags=["flags"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(safety.router, prefix="/api/safety", tags=["safety"])
 app.include_router(cost.router, prefix="/api/cost", tags=["cost"])
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
+app.include_router(health.router, tags=["health"])
