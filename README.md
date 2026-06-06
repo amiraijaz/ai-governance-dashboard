@@ -2,7 +2,7 @@
 
 > Open-source observability, safety, and cost-tracking for LLM applications. Self-hostable in one `docker compose up`. Built for teams of 2–50 that need NIST AI RMF-aligned governance without paying enterprise prices.
 
-![Dashboard](./Dashboard.png)
+![Dashboard](./Screenshots/Dashboard.png)
 
 Vigil answers the three questions every team running LLMs in 2026 has to answer:
 
@@ -22,7 +22,7 @@ Enterprise AI governance tools (Credo AI, Holistic AI, IBM WatsonX) target $500k
 
 ### Analytics
 
-![Analytics](./Analytics.png)
+![Analytics](./Screenshots/Analytics.png)
 
 Cost over time, requests per day (success / error / flagged stacked), latency trends with p50/p95/p99, and a per-model breakdown — all driven by PostgreSQL aggregations via async SQLAlchemy.
 
