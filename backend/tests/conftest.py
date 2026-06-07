@@ -148,9 +148,14 @@ async def _bind_session_factory_to_test_engine(engine, monkeypatch):
     monkeypatch.setattr(database, "AsyncSessionLocal", test_factory)
     # Modules that did `from database import AsyncSessionLocal` hold their
     # own reference — patch each binding site.
-    from app.routers import logs as _logs_mod, reports as _reports_mod
+    from app.routers import (
+        evals as _evals_mod,
+        logs as _logs_mod,
+        reports as _reports_mod,
+    )
     monkeypatch.setattr(_logs_mod, "AsyncSessionLocal", test_factory)
     monkeypatch.setattr(_reports_mod, "AsyncSessionLocal", test_factory)
+    monkeypatch.setattr(_evals_mod, "AsyncSessionLocal", test_factory)
     yield
 
 

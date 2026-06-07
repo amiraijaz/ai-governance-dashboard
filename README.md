@@ -1,40 +1,105 @@
-# Vigil — AI Governance Dashboard
+# Vigil
+
+NIST-aligned AI governance for teams running LLMs in production. Self-hostable in one command.
 
 [![CI](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml)
 [![coverage](./backend/coverage.svg)](./backend/coverage.svg)
+[![PyPI](https://img.shields.io/pypi/v/aigov?label=aigov%20SDK)](https://pypi.org/project/aigov)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ready-2496ed?logo=docker&logoColor=white)](./docker-compose.yml)
+[![NIST AI RMF](https://img.shields.io/badge/NIST%20AI%20RMF-aligned-1976d2)](https://www.nist.gov/itl/ai-risk-management-framework)
 
-> Open-source observability, safety, and cost-tracking for LLM applications. Self-hostable in one `docker compose up`. Built for teams of 2–50 that need NIST AI RMF-aligned governance without paying enterprise prices.
+**[▶ Try the live demo](https://vigil-amir.vercel.app)** · `test@vigil.com` / `demo1234`
 
 ![Dashboard](./Screenshots/Dashboard.png)
 
-Vigil answers the three questions every team running LLMs in 2026 has to answer:
-
-1. **What models are we running?** — central registry with risk classification and ownership.
-2. **Are they behaving correctly?** — every call is logged, every response is scanned for PII / toxicity / prompt injection, every flag goes to a human review queue.
-3. **Can we prove compliance if asked?** — one-click PDF reports mapped to the NIST AI RMF functions (Govern / Map / Measure / Manage).
-
 ---
 
-## Why this exists
+## Problem
 
-Enterprise AI governance tools (Credo AI, Holistic AI, IBM WatsonX) target $500k+ budgets. There is no credible open-source alternative for a team of five engineers building with the OpenAI and Anthropic APIs. Vigil fills that gap — small enough to run on a single VPS, complete enough to satisfy a NIST AI RMF audit, simple enough to integrate with one line of Python.
+Teams shipping LLM features to production have no observability, no safety scanning, and no audit trail. When the compliance question lands ("which models are we running, what do they cost, can you prove nothing leaked"), the answer is a Slack thread and a spreadsheet.
 
----
+The tools built to answer those questions (Credo AI, Holistic AI, IBM watsonx.governance) target $500K+ procurement cycles. Teams of two to fifty engineers shipping with the OpenAI and Anthropic APIs have nothing built for them. The closest neighbours, Langfuse and Helicone, are excellent at LLM tracing but treat governance as a feature flag rather than the product.
 
-## Screenshots
+## Solution
 
-### Analytics
+Vigil is a governance-first observability layer for LLM apps. One `docker compose up` gives you a central model registry with NIST risk classification, server-side cost and latency tracking against a live pricing catalog of 249 models, automatic PII / toxicity / prompt-injection scanning on every response, a human review queue for flagged calls, and one-click PDF reports mapped to the four NIST AI RMF functions (Govern, Map, Measure, Manage). The SDK is one line at the call site and never throws on logging failure, so the host application's latency and reliability are unaffected.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    SDK["aigov SDK<br/>(host app)"] -->|"POST /api/logs<br/>X-API-Key"| API[FastAPI backend]
+
+    API -->|cost lookup<br/>+ insert| PG[(PostgreSQL)]
+    API -->|"key hash<br/>+ rate limit"| RD[(Redis)]
+    API -->|"201 Created<br/>(< 50 ms)"| SDK
+
+    API -. "response_text<br/>included" .-> BG["BackgroundTask"]
+    BG -->|"PII (Presidio)"| SC[Safety Checker]
+    BG -->|"toxicity (OpenAI Moderation)"| SC
+    BG -->|"injection (regex)"| SC
+    SC -->|"flag row<br/>+ flagged=true"| PG
+
+    PG --> UI[React dashboard]
+    PG --> RPT["PDF report generator<br/>(WeasyPrint)"]
+```
+
+The ingest path is intentionally cheap. The SDK sends an audit log, the backend hashes the API key, looks up the model's per-1k token price, writes the row, and returns 201. Anything expensive (PII detection, toxicity scoring, injection pattern matching, PDF rendering) runs in a FastAPI BackgroundTask so the host app never waits on it. When the safety check fires, it persists a `safety_flags` row and flips `audit_logs.flagged = true`, surfacing the result in the review queue on the next page load.
+
+## Key Features
+
+- **Model registry with NIST risk classification.** Every model is registered once with owner, deployment date, use case, and a risk tier (Low / Medium / High / Critical). Risk drives the colour of the model row and the composition of the registered-models card on the dashboard.
+- **Audit logging with server-side cost computation across 249 models.** Prices come from the [LiteLLM catalog](https://github.com/BerriAI/litellm), refreshed daily by an APScheduler job. The SDK never sees prices, so a provider price change does not require an SDK upgrade.
+- **PII detection via Microsoft Presidio, toxicity via OpenAI Moderation, prompt-injection via pattern matching.** Each check produces a typed flag with a confidence score. Severity tiers (GREEN / YELLOW / RED) drive routing into the review queue.
+- **Cost and latency analytics with p50 / p95 / p99 percentiles.** Postgres window functions, not in-memory aggregation, so the dashboard scales with the table.
+- **Human review queue with severity triage and sign-off.** Reviewers mark flags as `safe`, `issue_found`, or `escalated`, with notes attached and the reviewer email recorded.
+- **NIST AI RMF PDF reports.** One click generates a report mapping audit data into the four RMF functions: Govern, Map, Measure, Manage. Rendered with WeasyPrint, generated asynchronously with status polling.
 
 ![Analytics](./Screenshots/Analytics.png)
 
-Cost over time, requests per day (success / error / flagged stacked), latency trends with p50/p95/p99, and a per-model breakdown — all driven by PostgreSQL aggregations via async SQLAlchemy.
+## How Vigil compares
 
----
+| | **Vigil** | **Langfuse** | **Helicone** |
+|---|---|---|---|
+| Primary focus | Governance & compliance | LLM tracing & evaluation | Cost monitoring + LLM proxy |
+| Governance framing | NIST AI RMF first | Tracing-first, governance via extensions | Cost-first, governance via integrations |
+| Risk-tiered model registry | Built-in | Not core | Not core |
+| Compliance PDF reports | One click | DIY via export | DIY via export |
+| Safety scanning (PII / toxicity / injection) | Built-in, background | Via integrations | Via integrations |
+| Self-hostable | One `docker compose up` | Yes | Yes |
+| License | MIT | MIT | Apache 2.0 |
+| Pricing | Free OSS only | OSS + paid cloud | OSS + paid cloud |
 
-## Quick start
+Langfuse and Helicone are the deeper, more mature tools for LLM tracing and prompt engineering. If you need span-level trace trees, dataset-driven evals, or a hosted LLM proxy, reach for them. Vigil's lane is compliance-first governance for a different buyer: the team that needs a defensible "what are we running, what is it costing us, can we prove nothing leaked" answer before security or legal asks, without enterprise procurement. The two roles compose well; they are not the same product.
+
+## Quickstart
+
+### Use the SDK
 
 ```bash
-git clone https://github.com/your-org/ai-governance-dashboard.git
+pip install aigov
+```
+
+```python
+from aigov import AIGovLogger
+
+logger = AIGovLogger(api_key="sk_...", model_id="<uuid-from-registry>")
+
+response = logger.call(
+    provider="anthropic",
+    model="claude-haiku-4-5",
+    messages=[{"role": "user", "content": "Hello"}],
+    user_id="user_123",
+)
+```
+
+The SDK is synchronous, has a 2-second timeout, and never raises on a logging failure. Adding it cannot slow down or break the host application.
+
+### Self-host
+
+```bash
+git clone https://github.com/amiraijaz/ai-governance-dashboard.git
 cd ai-governance-dashboard
 cp .env.example .env
 
@@ -44,234 +109,43 @@ openssl rand -hex 32
 docker compose up --build
 ```
 
-When the stack is up:
+Dashboard at `http://localhost:3000`, API and Swagger at `http://localhost:8000/docs`. Register an account at `/register`, mint an API key from Settings, and point the SDK at `http://localhost:8000`.
 
-| Service | URL |
-|---|---|
-| Dashboard | http://localhost:3000 |
-| API + Swagger | http://localhost:8000/docs |
-| Postgres | localhost:5432 |
-| Redis | localhost:6379 |
+Or skip the setup and **[poke the live demo](https://vigil-amir.vercel.app)** with the credentials above.
 
-Register an account at `/register`, then create an API key from the dashboard and point the SDK at `http://localhost:8000`.
+![Review Queue](./Screenshots/Review%20Queue.png)
 
----
-
-## SDK usage
-
-```python
-from aigov import AIGovLogger
-
-logger = AIGovLogger(
-    api_key="sk_...",                       # one-time key from the dashboard
-    model_id="<uuid-of-registered-model>",  # copy from Model Registry
-)
-
-response = logger.call(
-    provider="anthropic",
-    model="claude-haiku-4-5-20251001",
-    messages=[{"role": "user", "content": "Hello"}],
-    user_id="user_123",
-)
-```
-
-That's the whole integration. Every call is hashed, cost-scored, safety-checked, and surfaced in the dashboard. The SDK is **fully synchronous**, **never raises on logging failure**, and uses a **2-second timeout** so it cannot slow your host application down.
-
-Want server-side response scanning for PII / prompt-injection? Pass `log_responses=True` when constructing the logger.
-
----
-
-## Features
-
-### Implemented
-
-- [x] **Model Registry** — central inventory, risk classification (Low / Medium / High / Critical), ownership, archive workflow
-- [x] **Audit Logger** — one-line SDK wrap around OpenAI and Anthropic; prompt is hashed by default (privacy-first)
-- [x] **Live Cost Tracking** — server-side pricing synced daily from the [LiteLLM catalogue](https://github.com/BerriAI/litellm) (250+ models), no SDK update needed when providers change prices
-- [x] **Safety Flagging** — Microsoft Presidio (PII) + OpenAI Moderation API (toxicity) + regex (prompt injection); 3-tier severity (GREEN / YELLOW / RED); runs asynchronously after ingest so it never adds request latency
-- [x] **Review Queue** — human-in-the-loop triage with safe / issue-found / escalate outcomes; pulsing RED indicator for live issues
-- [x] **Analytics** — cost, requests, latency (p50/p95/p99), per-model breakdowns; period selector for 7 / 30 / 90 days
-- [x] **Compliance Reports** — one-click PDF, generated asynchronously with status polling, mapped to NIST AI RMF (Govern / Map / Measure / Manage)
-- [x] **Auth** — JWT access + refresh tokens, automatic token refresh in the frontend, rate-limited login and registration (Redis-backed via slowapi), scoped API keys with one-time-display creation, admin-only user role promotion
-- [x] **Dark mode** — full theme override, system / light / dark preference, persisted across reloads
-- [x] **Async stack** — FastAPI + async SQLAlchemy + asyncpg + APScheduler for the 24h pricing refresh
-
-### On the roadmap
-
-- [ ] Refresh-token rotation + server-side revocation list
-- [ ] Salted/HMAC prompt hashes (currently SHA256 of stringified messages)
-- [ ] Custom date ranges in analytics (currently 7d / 30d / 90d)
-- [ ] CSV export for reports (currently PDF only)
-- [ ] Code-split frontend bundle
-- [ ] Background-job queue (Redis + RQ) for long-running reports across multiple workers
-
----
-
-## Tech stack
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 18 + TypeScript + Vite + Tailwind CSS |
-| Charts | Recharts |
-| Routing & state | React Router 6, custom Auth/Toast/Theme contexts |
-| Backend | FastAPI (async) + SQLAlchemy 2.0 (async ORM) |
+| Backend | FastAPI · async SQLAlchemy 2.0 · asyncpg |
 | Database | PostgreSQL 15 |
-| Cache / queue / scheduler | Redis 7 + APScheduler |
-| Rate limiting | slowapi (Redis-backed) |
-| PII detection | Microsoft Presidio + spaCy `en_core_web_lg` |
-| Toxicity | OpenAI Moderation API |
-| PDF reports | WeasyPrint + Jinja2 |
-| Migrations | Alembic |
-| Containers | Docker + Docker Compose |
+| Cache, rate limit, scheduler | Redis 7 · slowapi · APScheduler |
+| Frontend | React 18 · TypeScript · Vite · Tailwind · Recharts |
+| Safety scanning | Microsoft Presidio · OpenAI Moderation · regex patterns |
+| Reports | WeasyPrint · Jinja2 |
 | SDK | `aigov` (Python, sync httpx) |
+| Containers | Docker · Docker Compose |
+| Test suite | pytest · pytest-asyncio · pytest-cov |
+| Production | Render (backend) · Supabase (Postgres) · Upstash (Redis) · Vercel (frontend) |
+| Error tracking | Sentry (optional, off when `SENTRY_DSN` unset) |
+
+## Roadmap
+
+- [ ] `aigov-evals`: LLM evaluation framework that registers eval results against the model registry
+- [ ] `governance-bench-v1`: public dataset on HuggingFace for benchmarking safety scanners
+- [ ] Slack and PagerDuty alerts on RED flags
+- [ ] Multi-tenant organisations with workspace isolation
+- [ ] Full RBAC beyond the current admin / viewer split
+- [ ] OpenTelemetry trace export so Vigil data feeds existing observability stacks
+
+## What I'd do differently
+
+I built the dashboard before the SDK had a single external user. The product is shaped right (registry, ingest, review queue, reports), but the order of operations was wrong. The SDK is the wedge: it lives inside customer code, it requires no UI, and it's the part that needs concrete feedback to evolve. Shipping `pip install aigov` standalone against a small hosted ingest endpoint would have validated demand and shaped the data model before three months of dashboard work. The lesson is to build the integration surface first when the product depends on adoption inside someone else's stack.
+
+The first cut ran the safety checker synchronously in the log ingest request. PII detection alone added 800-2000ms to the hot path depending on response length, and the SDK's 2-second timeout started biting under load. Moving the checks into `BackgroundTask` took the ingest path back under 50ms and changed the model from "blocking guarantee" to "eventual consistency on a few-second horizon", which is the right trade for an audit log. More broadly: the LLM observability space is crowded and well-funded, and trying to also be a tracing tool was a distraction. Vigil's edge is the compliance and governance story for teams that cannot pay enterprise prices, and the README, the SDK ergonomics, and the dashboard composition all needed to reflect that focus rather than compete on a dimension where Langfuse and Helicone are years ahead.
 
 ---
 
-## Architecture
-
-![Architecture](./ai-gov-architecture.png)
-
-```
-┌────────────────────────────┐         ┌────────────────────────────────────┐
-│  React + Vite (port 3000)  │ ◄────►  │  FastAPI async (port 8000)         │
-│                            │  REST   │                                    │
-│  /dashboard /models /logs  │  JSON   │  /api/{auth,users,models,keys,     │
-│  /analytics /flags /reports│         │       logs,pricing,flags,reports,  │
-│  /settings                 │         │       analytics,safety}            │
-└────────────────────────────┘         │                                    │
-                                       │  background tasks:                 │
-┌────────────────────────────┐  X-API  │   • safety check (post-ingest)     │
-│  aigov Python SDK          │ ──Key──►│   • report generation (PDF)        │
-│  AIGovLogger.call(...)     │         │  APScheduler: 24h pricing sync     │
-└────────────────────────────┘         └──────────────┬─────────────────────┘
-                                                      │
-                                  ┌───────────────────┼───────────────────┐
-                                  ▼                                       ▼
-                       ┌─────────────────────┐                  ┌──────────────────┐
-                       │  PostgreSQL 15      │                  │  Redis 7         │
-                       │                     │                  │                  │
-                       │  users, api_keys    │                  │  rate limiter    │
-                       │  model_registry     │                  │  (slowapi)       │
-                       │  audit_logs         │                  │                  │
-                       │  safety_flags       │                  └──────────────────┘
-                       │  model_pricing      │
-                       │  reports            │
-                       └─────────────────────┘
-```
-
----
-
-## Repository layout
-
-```
-ai-governance-dashboard/
-├── backend/
-│   ├── app/
-│   │   ├── routers/         FastAPI routers (auth, users, models, keys, logs,
-│   │   │                    pricing, analytics, flags, reports, safety, cost)
-│   │   ├── schemas/         Pydantic request/response models
-│   │   ├── auth.py          JWT + bcrypt + dependencies (get_current_user, require_admin)
-│   │   ├── limiter.py       slowapi limiter (Redis-backed)
-│   │   └── main.py          App factory, lifespan, exception handler, CORS
-│   ├── models/              SQLAlchemy ORM
-│   ├── services/            cost_calculator, pricing_sync, safety_checker,
-│   │                        report_generator, report_queue
-│   ├── alembic/             Migrations
-│   ├── templates/report.html  WeasyPrint compliance report template
-│   └── seeds/               One-off seed scripts
-├── frontend/
-│   └── src/
-│       ├── api/             Typed axios clients (one per resource)
-│       ├── components/      Sidebar, Toast, AuthSplit, PrimaryButton, etc.
-│       ├── context/         AuthContext
-│       ├── hooks/           useTheme, useCountUp, useFadeIn
-│       ├── pages/           Dashboard, Registry, Logs, Analytics, Flags,
-│       │                    Reports, Settings, Login, Register
-│       └── styles/          theme.css (light tokens) + dark.css (overrides)
-├── sdk/
-│   └── aigov/               Public Python SDK (AIGovLogger)
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
-
----
-
-## Configuration
-
-Copy `.env.example` to `.env` and fill in the values:
-
-| Variable | Purpose |
-|---|---|
-| `DATABASE_URL` | Async Postgres DSN. Defaults to the docker-compose Postgres. |
-| `REDIS_URL` | Redis URL for rate limiting and APScheduler. |
-| `SECRET_KEY` | JWT signing secret. **Required.** Generate with `openssl rand -hex 32`. Boot refuses if left at a known weak value while `DEBUG=false`. |
-| `OPENAI_API_KEY` | Optional. Used only for the OpenAI Moderation toxicity check. If unset, that check is skipped silently. |
-| `ANTHROPIC_API_KEY` | Optional. Used by the SDK end-to-end test. |
-| `FRONTEND_URL` | Origin allowed by CORS. Defaults to `http://localhost:3000`. |
-| `DEBUG` | `true` to enable verbose error responses and allow weak `SECRET_KEY` values. |
-
----
-
-## Local development
-
-### Backend
-
-```bash
-docker compose up postgres redis -d
-cd backend
-pip install -r requirements.txt
-python -m spacy download en_core_web_lg   # ~500 MB, one-time
-alembic upgrade head
-uvicorn app.main:app --reload
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### Run the end-to-end SDK test
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-python sdk/test_sdk.py
-```
-
-The test registers a fresh user, creates a model + API key, makes a real Anthropic call through the SDK, then verifies the log, cost, latency, and (when `log_responses=True`) a `PROMPT_INJECTION` safety flag round-trip.
-
----
-
-## Security posture
-
-This project takes security seriously even at the MVP stage. Already in place:
-
-- bcrypt password hashing via passlib
-- JWT access (24h) + refresh (30d) tokens
-- Bearer-token auth with automatic refresh and concurrent-request queueing on the frontend
-- Rate limiting on `/auth/login` (10/min) and `/auth/register` (5/min), Redis-backed so it survives reloads and works across replicas
-- Admin role is **not** user-controllable — `/auth/register` ignores any `role` field; admins promote others via `PUT /api/users/{id}/role`
-- `SECRET_KEY` validator refuses to boot in non-DEBUG mode if left at a known weak value
-- Owner-only access on API keys, reports, and download URLs
-- `X-API-Key` ingest hashes the raw key (SHA256) before lookup; raw keys are shown to the user exactly once
-
-Known gaps tracked in the roadmap above.
-
----
-
-## Contributing
-
-Issues and pull requests welcome. Run `pytest` (backend) and `npm run build` (frontend) before opening a PR. New routes should ship with at least one happy-path test.
-
----
-
-## License
-
-MIT — see [LICENSE](LICENSE).
-
----
-
-*Vigil is the open-source reference implementation of governance-as-code for LLM applications. If you're using it in production, I'd love to hear about it.*
+MIT licensed. See [LICENSE](./LICENSE). Issues and pull requests welcome at the [repo](https://github.com/amiraijaz/ai-governance-dashboard).

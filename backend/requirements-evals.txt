@@ -1,0 +1,17 @@
+# Eval-execution dependencies.
+#
+# DO NOT install these into the main API image. The combined footprint
+# (ragas + langchain-* + datasets/pyarrow) is ~150-200 MB resident, which
+# would push the API past Render's 512 MB free tier alongside Presidio +
+# spaCy. The main app ships the eval framework's data model, API routes,
+# and dashboard with no runtime dependency on this file; the evaluator
+# wrappers lazy-import at execution time and raise EvalDependenciesNotInstalled
+# if they're missing.
+#
+# Install this file ONLY where eval execution actually runs:
+#   * local dev:       pip install -r requirements-evals.txt
+#   * eval worker:     a separate Render service / RQ worker / CI job
+ragas==0.1.21
+datasets==2.21.0
+langchain-openai==0.2.14
+langchain-anthropic==0.2.4

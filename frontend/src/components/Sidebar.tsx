@@ -2,6 +2,7 @@ import {
   BarChart3,
   Database,
   FileText,
+  FlaskConical,
   Home,
   List,
   LogOut,
@@ -28,6 +29,7 @@ const NAV: NavItem[] = [
   { to: "/logs", label: "Audit Logs", icon: List },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/flags", label: "Review Queue", icon: Shield },
+  { to: "/evaluations", label: "Evaluations", icon: FlaskConical },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/settings", label: "Settings", icon: Settings },
 ];

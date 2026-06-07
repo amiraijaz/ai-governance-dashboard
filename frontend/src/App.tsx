@@ -4,6 +4,7 @@ import ProtectedLayout from "./components/ProtectedLayout";
 import { ToastProvider } from "./components/Toast";
 import Analytics from "./pages/Analytics";
 import Dashboard from "./pages/Dashboard";
+import Evaluations from "./pages/Evaluations";
 import Flags from "./pages/Flags";
 import Login from "./pages/Login";
 import Logs from "./pages/Logs";
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/logs" element={<Logs />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/flags" element={<Flags />} />
+            <Route path="/evaluations" element={<Evaluations />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
           </Route>

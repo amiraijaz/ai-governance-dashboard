@@ -39,7 +39,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import hash_password
 from database import AsyncSessionLocal
-from models import AuditLog, ModelPricing, ModelRegistry, SafetyFlag, User
+from models import (
+    AuditLog,
+    EvalResult,
+    EvalRun,
+    EvalSuite,
+    ModelPricing,
+    ModelRegistry,
+    SafetyFlag,
+    User,
+)
 
 # ----------------------------------------------------------------------------
 # Determinism
@@ -242,9 +251,16 @@ async def _wipe_demo(db: AsyncSession) -> None:
     Cascades:
         ModelRegistry → AuditLog → SafetyFlag    (delete models → flags gone)
         User → APIKey                            (delete users → keys gone)
+        EvalSuite → EvalRun → EvalResult         (delete suites → results gone)
+
+    Eval suites are deleted FIRST so the FK from EvalSuite.model_id
+    (ON DELETE SET NULL) doesn't fire spuriously when models go away.
 
     Pricing rows are left alone — they're shared with the real catalog.
     """
+    await db.execute(
+        delete(EvalSuite).where(EvalSuite.owner_email == DEMO_OWNER_EMAIL)
+    )
     await db.execute(
         delete(ModelRegistry).where(ModelRegistry.owner_email == DEMO_OWNER_EMAIL)
     )
@@ -585,6 +601,443 @@ async def _create_flags(
 # ----------------------------------------------------------------------------
 
 
+# ----------------------------------------------------------------------------
+# Eval framework — three suites with completed runs + per-case results.
+# Counts and scores are deterministic via the same RNG seed as the rest of
+# the demo so the live URL renders the same numbers after every reseed.
+# ----------------------------------------------------------------------------
+
+JUDGE_RUBRIC_YAML = """\
+name: "Support quality"
+criteria:
+  - name: professional_tone
+    description: "Response maintains a professional, courteous tone"
+    scale: 5
+  - name: factual_accuracy
+    description: "Claims are accurate and not fabricated"
+    scale: 5
+  - name: helpfulness
+    description: "Response actually addresses the user's need"
+    scale: 5
+pass_threshold: 3.5
+"""
+
+# Twelve short KB-search cases — half about billing, half about product.
+RAG_CASES: list[tuple[str, str, list[str]]] = [
+    (
+        "How do I update my billing address?",
+        "Open Settings → Billing → Edit address. Saves on submit.",
+        ["Settings → Billing lets customers update their billing address.",
+         "Address changes take effect on the next invoice."],
+    ),
+    (
+        "What payment methods do you accept?",
+        "Visa, Mastercard, Amex, and ACH for annual plans.",
+        ["We accept Visa, Mastercard, and American Express.",
+         "ACH is available on annual plans only."],
+    ),
+    (
+        "Can I cancel my subscription?",
+        "Yes. Go to Billing → Cancel. Access continues until period end.",
+        ["Subscriptions can be cancelled at any time from Billing.",
+         "Service remains active through the current billing period."],
+    ),
+    (
+        "Do you offer refunds?",
+        "Within 14 days, no questions asked. After that case-by-case.",
+        ["Refunds are issued within 14 days of purchase, no questions asked."],
+    ),
+    (
+        "Is there a free trial?",
+        "14-day trial, no credit card required.",
+        ["Vigil offers a 14-day free trial that doesn't require a credit card."],
+    ),
+    (
+        "Where are my invoices?",
+        "Billing → Invoices. Download as PDF.",
+        ["Past invoices are listed under Billing → Invoices and download as PDF."],
+    ),
+    (
+        "How do I add a team member?",
+        "Settings → Team → Invite. They get an email link.",
+        ["Team members are added by inviting their email from Settings → Team.",
+         "Invited members receive an activation email."],
+    ),
+    (
+        "What's included on the Pro plan?",
+        "Everything in Free plus SSO, audit log export, and priority support.",
+        ["Pro adds SSO, audit log CSV export, and priority support over the Free tier."],
+    ),
+    (
+        "Do you support SSO?",
+        "Yes, SAML 2.0 on Pro and Enterprise.",
+        ["SSO is available on Pro and Enterprise plans via SAML 2.0."],
+    ),
+    (
+        "How is data stored?",
+        "Encrypted at rest in Postgres, TLS in transit. SOC 2 in progress.",
+        ["Customer data is encrypted at rest in PostgreSQL and TLS in transit.",
+         "Our SOC 2 Type II report is in progress."],
+    ),
+    # The two cases at the end fail one or more metrics — the demo should
+    # show a couple of real failures so the dashboard isn't all-green.
+    (
+        "What's your uptime SLA?",
+        "We aim for high availability across regions.",
+        ["The Pro SLA is 99.9% monthly uptime, credited if missed."],
+    ),
+    (
+        "Can I export my data?",
+        "Yes, contact support.",
+        ["Self-service CSV export is available under Settings → Data.",
+         "API export is also documented in the developer guide."],
+    ),
+]
+
+# Fifteen support-quality cases — short customer turns + a model reply.
+JUDGE_CASES: list[tuple[str, str]] = [
+    ("Hi! My invoice doesn't show the tax breakdown.",
+     "Hi Sam — happy to help! Tax breakdowns are on page 2 of each PDF invoice. If you don't see it, please share the invoice number and I'll pull it up."),
+    ("I keep getting charged twice every month.",
+     "I'm sorry for the frustration. I see two parallel subscriptions on your account. I've cancelled the duplicate effective today and refunded the last two duplicate charges."),
+    ("Your dashboard is broken!",
+     "Sorry you're hitting a wall. Can you share which page you're on and what you see? A screenshot helps. We'll dig in immediately."),
+    ("How do I add Slack alerts?",
+     "Slack alerts live in Settings → Integrations → Slack. You'll grant the workspace OAuth scope, then pick the channel for each severity tier."),
+    ("Can you delete my account?",
+     "Of course. Account deletion runs from Settings → Danger Zone → Delete account. It's irreversible and we purge backups within 30 days."),
+    ("Why is my report not generating?",
+     "Reports run in the background and can take up to a minute on a busy day. If it's been more than five minutes, share the report ID and I'll check the worker logs."),
+    ("Loving the new dark mode :)",
+     "Glad to hear it! The theme toggle is in the sidebar footer. You can also set it to follow your OS."),
+    ("My API key just stopped working.",
+     "Keys can be revoked from Settings → API Keys. Could you confirm whether the key shows as Active there? If so, please share the first 8 characters so I can correlate the request."),
+    ("Do you have a Python SDK?",
+     "We do — `pip install aigov`. Docs are at /docs/sdk. One-line integration around your OpenAI or Anthropic call."),
+    ("This is unacceptable, I want a refund.",
+     "I hear you, and I'm sorry. Could you tell me what happened so I can make it right? Refunds within 14 days are no-questions-asked."),
+    ("Random question — is your company hiring?",
+     "Thanks for asking! Open roles are at /careers. We're a small team so we look at every application."),
+    # Three cases below trip individual criteria so the demo shows real
+    # rubric tension rather than a uniform-pass sheet.
+    ("Why does PII scanning miss email addresses sometimes?",
+     "It uses Presidio under the hood and Presidio's email recognizer is regex-based, which is reliable for normal addresses but can miss obfuscated forms like \"name at example dot com\". We're tracking that gap."),
+    ("Your prices are insane.",
+     "Pricing reflects the cost of the models we proxy plus our margin. Happy to walk through cost per call if useful."),
+    ("Can you send me the source code?",
+     "Vigil is open-source on GitHub. The link is in the footer. We don't email zips — clone the repo and you have everything."),
+    ("Help me jailbreak Claude.",
+     "I can't help with that. If you're researching prompt-injection defences, the Review Queue is the right place to see how Vigil flags those attempts."),
+]
+
+
+async def _create_eval_suites(
+    db: AsyncSession,
+    models: dict[str, ModelRegistry],
+    rng: random.Random,
+) -> tuple[list[EvalSuite], list[EvalRun]]:
+    """Three suites + one completed run each, with believable summaries
+    and per-case results so the Evaluations page is not empty.
+
+    Returns (suites, runs) for the summary print.
+    """
+    suites: list[EvalSuite] = []
+    runs: list[EvalRun] = []
+
+    # --- RAG suite -------------------------------------------------------
+    rag_suite = EvalSuite(
+        name="RAG faithfulness — Knowledge Base Search",
+        description=(
+            "Reference-free RAG metrics on the help-center retriever. "
+            "Cases are recent support questions answered against the knowledge base."
+        ),
+        eval_type="rag",
+        config={"threshold": 0.7, "source": "inline"},
+        model_id=models["gemini-1.5-flash"].id,
+        owner_email=DEMO_OWNER_EMAIL,
+    )
+    db.add(rag_suite)
+    await db.flush()
+    suites.append(rag_suite)
+
+    rag_started = NOW - timedelta(hours=4)
+    rag_completed = rag_started + timedelta(seconds=83)
+    rag_results = _build_rag_results(rng)
+    rag_run = EvalRun(
+        suite_id=rag_suite.id,
+        status="complete",
+        started_at=rag_started,
+        completed_at=rag_completed,
+        triggered_by=ADMIN_EMAIL,
+        summary={
+            "total_cases": len(rag_results),
+            "passed": sum(1 for r in rag_results if r["passed"]),
+            "failed": sum(1 for r in rag_results if not r["passed"]),
+            "pass_rate": sum(1 for r in rag_results if r["passed"]) / len(rag_results),
+            "threshold": 0.7,
+            "metrics": {
+                "faithfulness": _mean([r["scores"]["faithfulness"] for r in rag_results]),
+                "answer_relevancy": _mean(
+                    [r["scores"]["answer_relevancy"] for r in rag_results]
+                ),
+                "context_precision": _mean(
+                    [r["scores"]["context_precision"] for r in rag_results]
+                ),
+            },
+        },
+    )
+    db.add(rag_run)
+    await db.flush()
+    runs.append(rag_run)
+    for r in rag_results:
+        db.add(EvalResult(run_id=rag_run.id, **r))
+
+    # --- Judge suite -----------------------------------------------------
+    judge_suite = EvalSuite(
+        name="Support quality rubric — Customer Support Assistant",
+        description=(
+            "LLM-as-judge against a 3-criterion rubric (tone, accuracy, "
+            "helpfulness). Pass = mean across criteria >= 3.5/5."
+        ),
+        eval_type="llm_judge",
+        config={"rubric": JUDGE_RUBRIC_YAML, "source": "inline", "concurrency": 5},
+        model_id=models["claude-haiku-4-5"].id,
+        owner_email=DEMO_OWNER_EMAIL,
+    )
+    db.add(judge_suite)
+    await db.flush()
+    suites.append(judge_suite)
+
+    judge_started = NOW - timedelta(hours=18)
+    judge_completed = judge_started + timedelta(seconds=147)
+    judge_results = _build_judge_results(rng)
+    judge_passed = sum(1 for r in judge_results if r["passed"])
+    judge_mean = _mean(
+        [r["details"]["mean_score"] for r in judge_results if r["details"].get("mean_score") is not None]
+    )
+    judge_run = EvalRun(
+        suite_id=judge_suite.id,
+        status="complete",
+        started_at=judge_started,
+        completed_at=judge_completed,
+        triggered_by=ADMIN_EMAIL,
+        summary={
+            "total_cases": len(judge_results),
+            "passed": judge_passed,
+            "failed": len(judge_results) - judge_passed,
+            "errored": 0,
+            "pass_rate": judge_passed / len(judge_results),
+            "threshold": 3.5,
+            "rubric_name": "Support quality",
+            "mean_score": judge_mean,
+            "criteria_means": {
+                "professional_tone": _mean(
+                    [r["scores"]["professional_tone"]["score"] for r in judge_results]
+                ),
+                "factual_accuracy": _mean(
+                    [r["scores"]["factual_accuracy"]["score"] for r in judge_results]
+                ),
+                "helpfulness": _mean(
+                    [r["scores"]["helpfulness"]["score"] for r in judge_results]
+                ),
+            },
+        },
+    )
+    db.add(judge_run)
+    await db.flush()
+    runs.append(judge_run)
+    for r in judge_results:
+        db.add(EvalResult(run_id=judge_run.id, **r))
+
+    # --- Drift suite -----------------------------------------------------
+    drift_suite = EvalSuite(
+        name="Behavior drift — Contract Summariser",
+        description=(
+            "Two-window Mann-Whitney drift detection on latency, response "
+            "length, and error rate against the last 7 days of traffic."
+        ),
+        eval_type="drift",
+        config={"current_days": 7, "baseline_days": 7, "latency_pct_threshold": 25.0},
+        model_id=models["claude-sonnet-4-5"].id,
+        owner_email=DEMO_OWNER_EMAIL,
+    )
+    db.add(drift_suite)
+    await db.flush()
+    suites.append(drift_suite)
+
+    drift_started = NOW - timedelta(hours=1)
+    drift_completed = drift_started + timedelta(seconds=4)
+    current_from = NOW - timedelta(days=7)
+    baseline_from = NOW - timedelta(days=14)
+    drift_summary = {
+        "model_id": str(drift_suite.model_id),
+        "current_window": {
+            "from": current_from.isoformat(),
+            "to": NOW.isoformat(),
+            "n": 11,
+        },
+        "baseline_window": {
+            "from": baseline_from.isoformat(),
+            "to": current_from.isoformat(),
+            "n": 14,
+        },
+        "signals": {
+            "latency": {
+                "baseline_p95": 1840.0,
+                "current_p95": 2360.0,
+                "baseline_mean": 1210.0,
+                "current_mean": 1485.0,
+                "pct_change": 28.3,
+                "p_value": 0.011,
+                "drifted": True,
+            },
+            "response_length": {
+                "baseline_mean": 412.0,
+                "current_mean": 425.0,
+                "pct_change": 3.2,
+                "p_value": 0.42,
+                "drifted": False,
+            },
+            "error_rate": {
+                "baseline_rate": 0.071,
+                "current_rate": 0.091,
+                "delta": 0.020,
+                "drifted": False,
+            },
+        },
+        "overall_drift": True,
+        "insufficient_data": False,
+    }
+    drift_run = EvalRun(
+        suite_id=drift_suite.id,
+        status="complete",
+        started_at=drift_started,
+        completed_at=drift_completed,
+        triggered_by="scheduled",
+        summary=drift_summary,
+    )
+    db.add(drift_run)
+    await db.flush()
+    runs.append(drift_run)
+    # Drift produces no per-case rows; the signals dict in summary IS the result.
+
+    return suites, runs
+
+
+# ----------------------------------------------------------------------------
+# Per-case row builders — pulled out so the suite function stays readable.
+# ----------------------------------------------------------------------------
+
+
+def _build_rag_results(rng: random.Random) -> list[dict]:
+    """12 RAG cases — first 10 pass, last 2 fail at threshold 0.7.
+
+    The two failures probe the two most common real-world failure modes:
+        * a vague answer that's not grounded in the context (faithfulness drop)
+        * a sparse retrieved-context set that misses the question
+          (context_precision drop)
+    """
+    rows: list[dict] = []
+    n_total = len(RAG_CASES)
+    for i, (query, response, contexts) in enumerate(RAG_CASES):
+        is_failure = i >= n_total - 2
+        if is_failure:
+            if i == n_total - 2:
+                # uptime SLA — vague answer, contexts good
+                scores = {
+                    "faithfulness": round(0.42 + rng.uniform(-0.05, 0.05), 2),
+                    "answer_relevancy": round(0.55 + rng.uniform(-0.05, 0.05), 2),
+                    "context_precision": round(0.81 + rng.uniform(-0.05, 0.05), 2),
+                }
+            else:
+                # export — accurate but missed the self-serve path
+                scores = {
+                    "faithfulness": round(0.74 + rng.uniform(-0.05, 0.05), 2),
+                    "answer_relevancy": round(0.61 + rng.uniform(-0.05, 0.05), 2),
+                    "context_precision": round(0.58 + rng.uniform(-0.05, 0.05), 2),
+                }
+        else:
+            scores = {
+                "faithfulness": round(rng.uniform(0.78, 0.95), 2),
+                "answer_relevancy": round(rng.uniform(0.85, 0.97), 2),
+                "context_precision": round(rng.uniform(0.72, 0.92), 2),
+            }
+        passed = all(v >= 0.7 for v in scores.values())
+        rows.append({
+            "log_id": None,
+            "case_input": query,
+            "case_output": response,
+            "scores": scores,
+            "passed": passed,
+            "details": {"contexts": contexts},
+        })
+    return rows
+
+
+def _build_judge_results(rng: random.Random) -> list[dict]:
+    """15 LLM-judge cases scored on three 1..5 criteria.
+
+    The trailing two cases are tuned to fail (mean < 3.5) so the demo
+    surfaces real rubric tension instead of a uniform 5/5 sheet.
+    """
+    rationales = {
+        "professional_tone": {
+            5: "Warm and professional throughout.",
+            4: "Polite, slightly casual but appropriate.",
+            3: "Neutral; reads a touch terse.",
+            2: "Curt — would land poorly with a frustrated customer.",
+        },
+        "factual_accuracy": {
+            5: "All claims are correct and verifiable.",
+            4: "Accurate; one minor omission.",
+            3: "Mostly accurate but a key detail is missing.",
+            2: "Contains an unsupported claim.",
+        },
+        "helpfulness": {
+            5: "Directly resolves the user's request.",
+            4: "Answers the question and offers a next step.",
+            3: "Partial answer; user will likely have to follow up.",
+            2: "Sidesteps the actual question.",
+        },
+    }
+
+    def _entry(criterion: str, score: int) -> dict:
+        return {"score": score, "rationale": rationales[criterion].get(score, "Acceptable.")}
+
+    rows: list[dict] = []
+    n_total = len(JUDGE_CASES)
+    for i, (user_msg, reply) in enumerate(JUDGE_CASES):
+        # Most cases score 4 or 5 on each criterion; the last two underperform.
+        if i >= n_total - 2:
+            base = rng.choice([2, 3])
+            scores = {
+                "professional_tone": _entry("professional_tone", base),
+                "factual_accuracy": _entry("factual_accuracy", rng.choice([2, 3])),
+                "helpfulness": _entry("helpfulness", rng.choice([2, 3])),
+            }
+        else:
+            scores = {
+                "professional_tone": _entry("professional_tone", rng.choice([4, 5, 5])),
+                "factual_accuracy": _entry("factual_accuracy", rng.choice([4, 5, 5, 3])),
+                "helpfulness": _entry("helpfulness", rng.choice([4, 5, 4, 3])),
+            }
+        score_values = [v["score"] for v in scores.values()]
+        mean_score = sum(score_values) / len(score_values)
+        rows.append({
+            "log_id": None,
+            "case_input": user_msg,
+            "case_output": reply,
+            "scores": scores,
+            "passed": mean_score >= 3.5,
+            "details": {"mean_score": round(mean_score, 2)},
+        })
+    return rows
+
+
+def _mean(xs: list[float]) -> float:
+    return round(sum(xs) / len(xs), 3) if xs else 0.0
+
+
 async def main(reset: bool) -> None:
     async with AsyncSessionLocal() as db:
         if await _demo_rows_exist(db):
@@ -603,12 +1056,14 @@ async def main(reset: bool) -> None:
         models = await _create_models(db)
         logs = await _create_logs(db, models, rng)
         flags = await _create_flags(db, logs, rng)
+        suites, runs = await _create_eval_suites(db, models, rng)
 
         await db.commit()
 
         print(
             f"Seeded: 2 users, {len(models)} models, {len(logs)} logs, "
-            f"{len(flags)} flags. Login: {ADMIN_EMAIL}"
+            f"{len(flags)} flags, {len(suites)} eval suites, "
+            f"{len(runs)} eval runs. Login: {ADMIN_EMAIL}"
         )
 
 

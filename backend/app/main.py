@@ -17,6 +17,7 @@ from app.routers import (
     analytics,
     auth,
     cost,
+    evals,
     flags,
     health,
     keys,
@@ -135,4 +136,5 @@ app.include_router(flags.router, prefix="/api/flags", tags=["flags"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(safety.router, prefix="/api/safety", tags=["safety"])
 app.include_router(cost.router, prefix="/api/cost", tags=["cost"])
+app.include_router(evals.router, prefix="/api/evals", tags=["evals"])
 app.include_router(health.router, tags=["health"])

@@ -23,4 +23,19 @@ redis==5.0.8
 python-dotenv==1.0.1
 httpx==0.27.2
 sentry-sdk[fastapi]==2.18.0
+pyyaml==6.0.2
+# scipy is used by the drift detector (Mann-Whitney U). Wheel is ~35 MB and
+# the installed footprint is ~100 MB, sharing numpy with spacy/presidio.
+# Acceptable inside the main image; drift detection has no LLM deps and
+# stays in the main app rather than the eval worker.
+scipy==1.14.1
+
+# Eval-execution deps (ragas / datasets / langchain-*) live in
+# requirements-evals.txt. The main API image deliberately does NOT install
+# them so it fits inside Render's 512 MB free tier. The eval framework's
+# data model, API routes, and dashboard still ship with the main app; only
+# the heavy execution lives in a separate worker. See services/evaluators/
+# for the runtime guard that surfaces a clean install hint if execution is
+# attempted without those deps present.
+
 pytest==8.3.3

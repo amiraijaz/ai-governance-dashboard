@@ -4,6 +4,7 @@ from .safety_flag import SafetyFlag
 from .user import User, APIKey
 from .model_pricing import ModelPricing
 from .report import Report
+from .evaluation import EvalResult, EvalRun, EvalSuite
 
 __all__ = [
     "ModelRegistry",
@@ -13,4 +14,7 @@ __all__ = [
     "APIKey",
     "ModelPricing",
     "Report",
+    "EvalSuite",
+    "EvalRun",
+    "EvalResult",
 ]

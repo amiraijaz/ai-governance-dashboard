@@ -18,6 +18,9 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+# requirements-evals.txt (ragas/datasets/langchain-*) is intentionally NOT
+# installed here. Eval execution runs in a separate worker; the main API
+# image stays slim for Render's 512 MB free tier.
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Small spaCy model in production to stay within Railway's memory limits.

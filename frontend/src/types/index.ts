@@ -144,3 +144,77 @@ export interface UserProfile {
   organisation: string | null;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Eval framework
+// ---------------------------------------------------------------------------
+
+export type EvalType = "rag" | "llm_judge" | "drift";
+export type RunStatus = "pending" | "running" | "complete" | "failed";
+
+export interface EvalSuite {
+  id: string;
+  name: string;
+  description: string | null;
+  eval_type: EvalType;
+  config: Record<string, any> | null;
+  model_id: string | null;
+  owner_email: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EvalSuiteDetail extends EvalSuite {
+  recent_runs: EvalRun[];
+}
+
+export interface EvalRun {
+  id: string;
+  suite_id: string;
+  status: RunStatus;
+  started_at: string | null;
+  completed_at: string | null;
+  summary: Record<string, any> | null;
+  error_message: string | null;
+  triggered_by: string | null;
+  created_at: string;
+}
+
+export interface EvalRunCreated {
+  run_id: string;
+  status: RunStatus;
+  message: string;
+}
+
+export interface EvalResult {
+  id: string;
+  run_id: string;
+  log_id: string | null;
+  case_input: string | null;
+  case_output: string | null;
+  scores: Record<string, any> | null;
+  passed: boolean;
+  details: Record<string, any> | null;
+  created_at: string;
+}
+
+export interface PaginatedEvalResults {
+  items: EvalResult[];
+  page: number;
+  limit: number;
+  total: number;
+}
+
+export interface EvalSuiteCreate {
+  name: string;
+  description?: string | null;
+  eval_type: EvalType;
+  config: Record<string, any>;
+  model_id?: string | null;
+}
+
+export type EvalSuiteUpdate = Partial<Omit<EvalSuiteCreate, "eval_type">>;
+
+export interface EvalRunTrigger {
+  cases?: Record<string, any>[];
+}
