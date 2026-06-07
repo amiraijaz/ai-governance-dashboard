@@ -1,12 +1,12 @@
-# vigilai
+# aigovkit
 
 Python SDK for [Vigil](https://github.com/amiraijaz/ai-governance-dashboard), the open-source AI governance dashboard.
 
 ## Install
 
 ```bash
-pip install vigilai           # core: logging + judge + drift
-pip install vigilai[evals]    # adds Ragas + LangChain for local RAG evaluation
+pip install aigovkit           # core: logging + judge + drift
+pip install aigovkit[evals]    # adds Ragas + LangChain for local RAG evaluation
 ```
 
 Core install is dependency-light (`httpx`, `pyyaml`, the official `anthropic` and `openai` SDKs). The `[evals]` extra pulls Ragas and the LangChain wrappers (~150 MB) only when you need to run RAG metrics locally.
@@ -14,7 +14,7 @@ Core install is dependency-light (`httpx`, `pyyaml`, the official `anthropic` an
 ## Quick log
 
 ```python
-from vigilai import AIGovLogger
+from aigovkit import AIGovLogger
 
 logger = AIGovLogger(
     api_key="sk_...",                       # X-API-Key from the dashboard
@@ -45,7 +45,7 @@ The SDK computes the eval itself and returns the result. No dashboard required.
 #### `judge()` — LLM-as-judge against a YAML rubric
 
 ```python
-from vigilai.evals import judge
+from aigovkit.evals import judge
 
 RUBRIC = """
 name: "Support quality"
@@ -83,7 +83,7 @@ for r in result["per_case"]:
 #### `rag()` — reference-free RAG metrics
 
 ```python
-from vigilai.evals import rag
+from aigovkit.evals import rag
 
 cases = [{
     "query": "Where are my invoices?",
@@ -97,7 +97,7 @@ result = rag(cases, threshold=0.7)
 `rag()` is a Ragas wrapper computing **faithfulness**, **answer_relevancy**, and **context_precision**. It requires the optional extras:
 
 ```bash
-pip install vigilai[evals]
+pip install aigovkit[evals]
 ```
 
 Without them, `rag()` raises a clean `EvalDependenciesNotInstalled` with the install hint. With them, it also needs `OPENAI_API_KEY` (Ragas uses OpenAI embeddings).
@@ -105,7 +105,7 @@ Without them, `rag()` raises a clean `EvalDependenciesNotInstalled` with the ins
 #### `drift()` — two-sample drift on a single metric
 
 ```python
-from vigilai.evals import drift
+from aigovkit.evals import drift
 
 result = drift(
     current=recent_latencies_ms,
@@ -125,13 +125,13 @@ For full **log-backed multi-signal drift** (latency p95, response length, and er
 Eval suites are reusable, run on demand or on a schedule, and store results against your governance dashboard's Evaluations tab. Auth is via the dashboard session JWT (the access_token returned from `/api/auth/login`), not the X-API-Key used for logging.
 
 ```python
-from vigilai import AIGovLogger
+from aigovkit import AIGovLogger
 
 logger = AIGovLogger(
     api_key="sk_...",
     model_id="<uuid>",
     dashboard_url="https://your-vigil.example.com",
-    token="<session JWT>",        # or set VIGILAI_TOKEN in the environment
+    token="<session JWT>",        # or set AIGOVKIT_TOKEN in the environment
 )
 
 suite = logger.evals.create_suite(
@@ -151,17 +151,17 @@ while True:
 print(info["summary"])
 ```
 
-Unlike `logger.call` (which swallows logging failures), dashboard eval calls **raise** on HTTP errors. They are user-driven and silent failure would hide real bugs. Catch `vigilai.evals.DashboardError` to handle them.
+Unlike `logger.call` (which swallows logging failures), dashboard eval calls **raise** on HTTP errors. They are user-driven and silent failure would hide real bugs. Catch `aigovkit.evals.DashboardError` to handle them.
 
 ---
 
 ## Errors
 
-All eval errors inherit from `vigilai.evals.EvalError`. The specific subclasses:
+All eval errors inherit from `aigovkit.evals.EvalError`. The specific subclasses:
 
 | | Raised when |
 |---|---|
-| `EvalDependenciesNotInstalled` | `rag()` called without `vigilai[evals]` installed |
+| `EvalDependenciesNotInstalled` | `rag()` called without `aigovkit[evals]` installed |
 | `RubricError` | YAML rubric is malformed or fails structural validation |
 | `NoLLMConfigured` | `judge()` / `rag()` called with no `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
 | `DashboardError` | Mode B HTTP call failed (network, 4xx/5xx, or non-JSON body) |

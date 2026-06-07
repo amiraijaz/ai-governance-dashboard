@@ -1,20 +1,20 @@
-"""vigilai.evals — evaluation framework, two modes.
+"""aigovkit.evals — evaluation framework, two modes.
 
 MODE A — local execution (the SDK computes evals itself):
-    from vigilai.evals import judge, rag, drift
+    from aigovkit.evals import judge, rag, drift
 
     # judge: just an API key, no extras needed
     result = judge(cases, rubric=YAML_STRING)
 
     # rag: requires the [evals] extras for ragas + langchain
-    #     pip install vigilai[evals]
+    #     pip install aigovkit[evals]
     result = rag(cases, threshold=0.7)
 
     # drift: stdlib-only sample comparison
     result = drift(current=[...], baseline=[...])
 
 MODE B — dashboard-backed (recommended for teams):
-    from vigilai import AIGovLogger
+    from aigovkit import AIGovLogger
     logger = AIGovLogger(api_key="sk_...", model_id="<uuid>",
                         dashboard_url="https://your-vigil",
                         token="<session JWT>")
@@ -117,7 +117,7 @@ def rag(cases: list[dict], threshold: float = 0.7) -> dict:
     """Reference-free RAG evaluation (faithfulness / answer_relevancy /
     context_precision).
 
-    Requires the optional ``vigilai[evals]`` extras. Without them, raises
+    Requires the optional ``aigovkit[evals]`` extras. Without them, raises
     ``EvalDependenciesNotInstalled`` with a one-line install hint.
 
     Each case must have ``query``, ``response``, and ``contexts``
@@ -134,7 +134,7 @@ def drift(
 ) -> dict:
     """Two-sample drift on a single metric.
 
-    Stdlib-only — see ``vigilai.evals._drift`` for the rationale and the
+    Stdlib-only — see ``aigovkit.evals._drift`` for the rationale and the
     pointer to ``logger.evals.run_suite`` for full multi-signal drift
     against your audit logs.
     """

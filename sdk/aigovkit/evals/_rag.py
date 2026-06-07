@@ -3,7 +3,7 @@
 Wraps Ragas (faithfulness / answer_relevancy / context_precision). The
 heavy deps live behind a lazy import and raise EvalDependenciesNotInstalled
 with a clean install hint when missing, so the SDK module imports fine
-without ``vigilai[evals]`` installed.
+without ``aigovkit[evals]`` installed.
 """
 
 from __future__ import annotations
@@ -58,7 +58,7 @@ def _run_ragas(cases: list[dict]) -> list[dict[str, float]]:
         from langchain_openai import OpenAIEmbeddings  # noqa: WPS433
     except ModuleNotFoundError as exc:
         raise EvalDependenciesNotInstalled(
-            "RAG evaluation requires: pip install vigilai[evals] "
+            "RAG evaluation requires: pip install aigovkit[evals] "
             f"(missing module: {exc.name})"
         ) from exc
 
@@ -112,7 +112,7 @@ async def _rag_async(cases: list[dict], threshold: float) -> dict:
         import ragas     # noqa: F401, WPS433
     except ModuleNotFoundError as exc:
         raise EvalDependenciesNotInstalled(
-            "RAG evaluation requires: pip install vigilai[evals] "
+            "RAG evaluation requires: pip install aigovkit[evals] "
             f"(missing module: {exc.name})"
         ) from exc
 

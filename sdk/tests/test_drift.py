@@ -4,7 +4,7 @@ import random
 
 import pytest
 
-from vigilai.evals import drift
+from aigovkit.evals import drift
 
 
 def test_clear_drift_is_flagged():

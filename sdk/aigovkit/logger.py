@@ -37,10 +37,10 @@ class AIGovLogger:
     def evals(self) -> "DashboardEvals":  # type: ignore[name-defined]
         """Dashboard-backed evals client (Mode B).
 
-        See ``vigilai.evals`` for the local-mode entry points (``judge``,
+        See ``aigovkit.evals`` for the local-mode entry points (``judge``,
         ``rag``, ``drift``). This property returns a thin sync client that
         talks to /api/evals on ``self.dashboard_url`` using the session
-        JWT supplied via ``token=`` on construction (or ``VIGILAI_TOKEN``
+        JWT supplied via ``token=`` on construction (or ``AIGOVKIT_TOKEN``
         in the environment).
         """
         if self._evals is None:

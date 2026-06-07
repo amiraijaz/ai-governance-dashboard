@@ -11,8 +11,8 @@ Covers:
 import pytest
 import httpx
 
-from vigilai import AIGovLogger
-from vigilai.evals import DashboardError, DashboardEvals
+from aigovkit import AIGovLogger
+from aigovkit.evals import DashboardError, DashboardEvals
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +168,7 @@ def test_network_error_raises_dashboard_error():
     # Use the REAL _request path (not our harness) by mocking httpx.Client
     # at the module level.
     transport = httpx.MockTransport(handler)
-    import vigilai.evals._dashboard as dash_mod
+    import aigovkit.evals._dashboard as dash_mod
 
     real_client_cls = dash_mod.httpx.Client
 
@@ -186,7 +186,7 @@ def test_network_error_raises_dashboard_error():
 
 
 def test_missing_token_raises_clear_error(monkeypatch):
-    monkeypatch.delenv("VIGILAI_TOKEN", raising=False)
+    monkeypatch.delenv("AIGOVKIT_TOKEN", raising=False)
     logger = AIGovLogger(
         api_key="sk", model_id="m",
         dashboard_url="https://test.example.com",
@@ -197,7 +197,7 @@ def test_missing_token_raises_clear_error(monkeypatch):
 
 
 def test_token_falls_back_to_env(monkeypatch):
-    monkeypatch.setenv("VIGILAI_TOKEN", "from-env")
+    monkeypatch.setenv("AIGOVKIT_TOKEN", "from-env")
     captured = {}
 
     def handler(request):

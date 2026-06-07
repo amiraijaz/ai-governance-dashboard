@@ -6,11 +6,11 @@ importing anything heavy. The module imports nothing beyond the stdlib.
 
 
 class EvalError(Exception):
-    """Base class — catch this to handle any vigilai.evals failure."""
+    """Base class — catch this to handle any aigovkit.evals failure."""
 
 
 class EvalDependenciesNotInstalled(EvalError):
-    """Raised when an evaluator needs the optional `vigilai[evals]` extras
+    """Raised when an evaluator needs the optional `aigovkit[evals]` extras
     and they are not installed in the running environment."""
 
 

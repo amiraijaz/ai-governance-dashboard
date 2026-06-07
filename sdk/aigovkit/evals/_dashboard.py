@@ -9,7 +9,7 @@ the log-ingest path.
 Authentication note: the dashboard's /api/evals endpoints require the
 session JWT, not the ingest API key. Pass `token=...` (the access_token
 returned from /api/auth/login) when constructing the client, OR set
-``VIGILAI_TOKEN`` in the environment.
+``AIGOVKIT_TOKEN`` in the environment.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ class DashboardEvals:
         timeout_s: float = 30.0,
     ) -> None:
         self.dashboard_url = dashboard_url.rstrip("/")
-        self.token = token or os.getenv("VIGILAI_TOKEN", "").strip()
+        self.token = token or os.getenv("AIGOVKIT_TOKEN", "").strip()
         self.timeout_s = timeout_s
 
     # ------------------------------------------------------------------
@@ -43,7 +43,7 @@ class DashboardEvals:
         if not self.token:
             raise DashboardError(
                 "Dashboard-backed evals need a session token. Pass "
-                "`token=` when constructing the logger, or set VIGILAI_TOKEN "
+                "`token=` when constructing the logger, or set AIGOVKIT_TOKEN "
                 "to your /api/auth/login access_token."
             )
         return {

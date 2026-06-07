@@ -7,14 +7,14 @@ import json
 
 import pytest
 
-from vigilai.evals import (
+from aigovkit.evals import (
     NoLLMConfigured,
     Rubric,
     RubricError,
     judge,
     parse_rubric,
 )
-from vigilai.evals import _judge as judge_mod
+from aigovkit.evals import _judge as judge_mod
 
 
 VALID_YAML = """
