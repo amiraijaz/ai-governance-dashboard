@@ -5,7 +5,7 @@ the optional extras + real API keys and is left to integration tier."""
 
 import pytest
 
-from aigov.evals import EvalDependenciesNotInstalled, rag
+from vigilai.evals import EvalDependenciesNotInstalled, rag
 
 
 def test_rag_without_extras_raises_clean_install_hint(monkeypatch):
@@ -13,7 +13,7 @@ def test_rag_without_extras_raises_clean_install_hint(monkeypatch):
     surface the documented install hint rather than ModuleNotFoundError."""
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-fake")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-fake")
-    with pytest.raises(EvalDependenciesNotInstalled, match="aigov\\[evals\\]"):
+    with pytest.raises(EvalDependenciesNotInstalled, match="vigilai\\[evals\\]"):
         rag(cases=[{
             "query": "What is X?",
             "response": "X is foo.",

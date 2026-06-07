@@ -12,7 +12,7 @@ import uuid
 
 import httpx
 
-from aigov import AIGovLogger
+from vigilai import AIGovLogger
 
 BASE_URL = os.environ.get("AIGOV_BASE_URL", "http://localhost:8000")
 ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
