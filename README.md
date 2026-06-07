@@ -4,7 +4,7 @@ NIST-aligned AI governance for teams running LLMs in production. Self-hostable i
 
 [![CI](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml)
 [![coverage](./backend/coverage.svg)](./backend/coverage.svg)
-[![PyPI](https://img.shields.io/pypi/v/aigov?label=aigov%20SDK)](https://pypi.org/project/aigov)
+[![PyPI](https://img.shields.io/pypi/v/aigovkit?label=aigovkit%20SDK)](https://pypi.org/project/aigovkit/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ready-2496ed?logo=docker&logoColor=white)](./docker-compose.yml)
 [![NIST AI RMF](https://img.shields.io/badge/NIST%20AI%20RMF-aligned-1976d2)](https://www.nist.gov/itl/ai-risk-management-framework)
@@ -29,7 +29,7 @@ Vigil is a governance-first observability layer for LLM apps. One `docker compos
 
 ```mermaid
 flowchart LR
-    SDK["aigov SDK<br/>(host app)"] -->|"POST /api/logs<br/>X-API-Key"| API[FastAPI backend]
+    SDK["aigovkit SDK<br/>(host app)"] -->|"POST /api/logs<br/>X-API-Key"| API[FastAPI backend]
 
     API -->|cost lookup<br/>+ insert| PG[(PostgreSQL)]
     API -->|"key hash<br/>+ rate limit"| RD[(Redis)]
@@ -77,12 +77,14 @@ Langfuse and Helicone are the deeper, more mature tools for LLM tracing and prom
 
 ### Use the SDK
 
+Vigil is the governance platform; [`aigovkit`](https://pypi.org/project/aigovkit/) is its Python SDK (`pip install aigovkit`).
+
 ```bash
-pip install aigov
+pip install aigovkit
 ```
 
 ```python
-from aigov import AIGovLogger
+from aigovkit import AIGovLogger
 
 logger = AIGovLogger(api_key="sk_...", model_id="<uuid-from-registry>")
 
@@ -125,7 +127,7 @@ Or skip the setup and **[poke the live demo](https://vigil-amir.vercel.app)** wi
 | Frontend | React 18 · TypeScript · Vite · Tailwind · Recharts |
 | Safety scanning | Microsoft Presidio · OpenAI Moderation · regex patterns |
 | Reports | WeasyPrint · Jinja2 |
-| SDK | `aigov` (Python, sync httpx) |
+| SDK | [`aigovkit`](https://pypi.org/project/aigovkit/) (Python, sync httpx) |
 | Containers | Docker · Docker Compose |
 | Test suite | pytest · pytest-asyncio · pytest-cov |
 | Production | Render (backend) · Supabase (Postgres) · Upstash (Redis) · Vercel (frontend) |
@@ -133,7 +135,7 @@ Or skip the setup and **[poke the live demo](https://vigil-amir.vercel.app)** wi
 
 ## Roadmap
 
-- [ ] `aigov-evals`: LLM evaluation framework that registers eval results against the model registry
+- [x] [`aigovkit.evals`](https://pypi.org/project/aigovkit/): LLM evaluation framework that registers eval results against the model registry (LLM-as-judge, RAG metrics, drift detection — local mode and dashboard-backed mode)
 - [x] [`governance-bench-v1`](https://huggingface.co/datasets/Vigil-ai/governance-bench-v1): public dataset on HuggingFace for benchmarking safety scanners (200 curated cases across PII, hallucination, and prompt injection)
 - [ ] Slack and PagerDuty alerts on RED flags
 - [ ] Multi-tenant organisations with workspace isolation
@@ -142,7 +144,7 @@ Or skip the setup and **[poke the live demo](https://vigil-amir.vercel.app)** wi
 
 ## What I'd do differently
 
-I built the dashboard before the SDK had a single external user. The product is shaped right (registry, ingest, review queue, reports), but the order of operations was wrong. The SDK is the wedge: it lives inside customer code, it requires no UI, and it's the part that needs concrete feedback to evolve. Shipping `pip install aigov` standalone against a small hosted ingest endpoint would have validated demand and shaped the data model before three months of dashboard work. The lesson is to build the integration surface first when the product depends on adoption inside someone else's stack.
+I built the dashboard before the SDK had a single external user. The product is shaped right (registry, ingest, review queue, reports), but the order of operations was wrong. The SDK is the wedge: it lives inside customer code, it requires no UI, and it's the part that needs concrete feedback to evolve. Shipping `pip install aigovkit` standalone against a small hosted ingest endpoint would have validated demand and shaped the data model before three months of dashboard work. The lesson is to build the integration surface first when the product depends on adoption inside someone else's stack.
 
 The first cut ran the safety checker synchronously in the log ingest request. PII detection alone added 800-2000ms to the hot path depending on response length, and the SDK's 2-second timeout started biting under load. Moving the checks into `BackgroundTask` took the ingest path back under 50ms and changed the model from "blocking guarantee" to "eventual consistency on a few-second horizon", which is the right trade for an audit log. More broadly: the LLM observability space is crowded and well-funded, and trying to also be a tracing tool was a distraction. Vigil's edge is the compliance and governance story for teams that cannot pay enterprise prices, and the README, the SDK ergonomics, and the dashboard composition all needed to reflect that focus rather than compete on a dimension where Langfuse and Helicone are years ahead.
 

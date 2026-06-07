@@ -65,10 +65,10 @@ NOW = datetime.now(timezone.utc).replace(microsecond=0)
 # Demo identity
 # ----------------------------------------------------------------------------
 
-ADMIN_EMAIL = "admin@vigil.demo"
-ADMIN_PASSWORD = "Vigil2025!Demo"
-VIEWER_EMAIL = "viewer@vigil.demo"
-VIEWER_PASSWORD = "Viewer2025!"
+ADMIN_EMAIL = "test@vigil.com"
+ADMIN_PASSWORD = "demo1234"
+VIEWER_EMAIL = "viewer@vigil.com"
+VIEWER_PASSWORD = "viewer1234"
 
 DEMO_ORG = "Vigil Demo Co."
 
@@ -713,7 +713,7 @@ JUDGE_CASES: list[tuple[str, str]] = [
     ("My API key just stopped working.",
      "Keys can be revoked from Settings → API Keys. Could you confirm whether the key shows as Active there? If so, please share the first 8 characters so I can correlate the request."),
     ("Do you have a Python SDK?",
-     "We do — `pip install aigov`. Docs are at /docs/sdk. One-line integration around your OpenAI or Anthropic call."),
+     "We do — `pip install aigovkit`. Docs are at /docs/sdk. One-line integration around your OpenAI or Anthropic call."),
     ("This is unacceptable, I want a refund.",
      "I hear you, and I'm sorry. Could you tell me what happened so I can make it right? Refunds within 14 days are no-questions-asked."),
     ("Random question — is your company hiring?",
