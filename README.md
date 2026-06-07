@@ -134,7 +134,7 @@ Or skip the setup and **[poke the live demo](https://vigil-amir.vercel.app)** wi
 ## Roadmap
 
 - [ ] `aigov-evals`: LLM evaluation framework that registers eval results against the model registry
-- [ ] `governance-bench-v1`: public dataset on HuggingFace for benchmarking safety scanners
+- [x] [`governance-bench-v1`](https://huggingface.co/datasets/Vigil-ai/governance-bench-v1): public dataset on HuggingFace for benchmarking safety scanners (200 curated cases across PII, hallucination, and prompt injection)
 - [ ] Slack and PagerDuty alerts on RED flags
 - [ ] Multi-tenant organisations with workspace isolation
 - [ ] Full RBAC beyond the current admin / viewer split

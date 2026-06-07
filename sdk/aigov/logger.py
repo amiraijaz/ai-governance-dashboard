@@ -20,12 +20,36 @@ class AIGovLogger:
         dashboard_url: str = "http://localhost:8000",
         log_raw_prompts: bool = False,
         log_responses: bool = False,
+        token: Optional[str] = None,
     ):
         self.api_key = api_key
         self.model_id = model_id
         self.dashboard_url = dashboard_url.rstrip("/")
         self.log_raw_prompts = log_raw_prompts
         self.log_responses = log_responses
+        # Session JWT for dashboard-backed evals (different from api_key,
+        # which is the X-API-Key used by /api/logs ingest). Lazily-built
+        # client lives behind the .evals property.
+        self._eval_token = token
+        self._evals: Optional["DashboardEvals"] = None  # type: ignore[name-defined]
+
+    @property
+    def evals(self) -> "DashboardEvals":  # type: ignore[name-defined]
+        """Dashboard-backed evals client (Mode B).
+
+        See ``aigov.evals`` for the local-mode entry points (``judge``,
+        ``rag``, ``drift``). This property returns a thin sync client that
+        talks to /api/evals on ``self.dashboard_url`` using the session
+        JWT supplied via ``token=`` on construction (or ``AIGOV_TOKEN``
+        in the environment).
+        """
+        if self._evals is None:
+            from .evals import DashboardEvals  # local import keeps import-time cheap
+            self._evals = DashboardEvals(
+                dashboard_url=self.dashboard_url,
+                token=self._eval_token,
+            )
+        return self._evals
 
     @staticmethod
     def _hash_prompt(messages: list[dict]) -> str:
