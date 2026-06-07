@@ -1,5 +1,8 @@
 # Vigil — AI Governance Dashboard
 
+[![CI](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/amiraijaz/ai-governance-dashboard/actions/workflows/ci.yml)
+[![coverage](./backend/coverage.svg)](./backend/coverage.svg)
+
 > Open-source observability, safety, and cost-tracking for LLM applications. Self-hostable in one `docker compose up`. Built for teams of 2–50 that need NIST AI RMF-aligned governance without paying enterprise prices.
 
 ![Dashboard](./Screenshots/Dashboard.png)

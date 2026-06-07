@@ -1,0 +1,6 @@
+# Test-only deps. Installed in dev / CI; not baked into the production image.
+# httpx is already in requirements.txt, so it's omitted here.
+-r requirements.txt
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0

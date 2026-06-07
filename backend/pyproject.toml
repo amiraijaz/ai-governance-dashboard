@@ -1,0 +1,18 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Per-test loop scope (the pytest-asyncio 0.24 default). Combined with the
+# function-scoped engine fixture in conftest.py, every test owns its loop
+# and the asyncpg connections it creates — no cross-loop Future errors.
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+  "real_safety_checker: opt out of the autouse safety_checker.check mock — used by tests that exercise the real check() logic.",
+]
+filterwarnings = [
+  # pydantic warns about `model_*` field names colliding with its protected
+  # namespace; we set protected_namespaces=() on the affected schemas but the
+  # warnings still fire at import time. Silence them so the test report stays
+  # signal-only.
+  "ignore::UserWarning",
+  "ignore::DeprecationWarning",
+]
